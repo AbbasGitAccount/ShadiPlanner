@@ -1,0 +1,34 @@
+{
+  "name": "shadi-planner-matrimony",
+  "version": "1.0.0",
+  "description": "Full-Stack Matrimonial & Wedding Planning Web Application built with React TypeScript & Node.js TypeScript",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently -n \"BACKEND,FRONTEND\" -c \"cyan,magenta\" \"npm run dev --prefix server\" \"npm run dev --prefix client\"",
+    "dev:server": "npm run dev --prefix server",
+    "dev:client": "npm run dev --prefix client",
+    "build": "npm run build --prefix server && npm run build --prefix client",
+    "build:client": "npm run build --prefix client",
+    "build:server": "npm run build --prefix server",
+    "install:all": "npm --prefix server install && npm --prefix client install",
+    "redis:up": "docker compose -f compose.redis.yaml up -d",
+    "redis:down": "docker compose -f compose.redis.yaml down",
+    "redis:check": "npm --prefix server run redis:check",
+    "dev:mobile": "npm run start --prefix mobile",
+    "android": "npm run android --prefix mobile",
+    "build:mobile": "npm run export:android --prefix mobile"
+  },
+  "keywords": [
+    "matrimony",
+    "shadi",
+    "react",
+    "typescript",
+    "nodejs",
+    "express"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^10.0.6"
+  }
+}

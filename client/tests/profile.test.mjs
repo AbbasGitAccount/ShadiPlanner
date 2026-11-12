@@ -1,0 +1,34 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import ts from 'typescript';
+const compile=async path=>ts.transpileModule(await readFile(new URL(path,import.meta.url),'utf8'),{compilerOptions:{module:ts.ModuleKind.ESNext,target:ts.ScriptTarget.ES2020}}).outputText;
+const dataUrl=source=>`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`;
+const registration=dataUrl(await compile('../src/forms/registration.ts'));
+const source=(await compile('../src/forms/profile.ts')).replace("'./registration'",JSON.stringify(registration));
+const { profileSections,profileFormValues,profileFormPayload,validateProfileForm }=await import(dataUrl(source));
+const {buildRegistrationProfile}=await import(dataUrl(await compile('../../server/src/models/registration.ts')));
+const details={fullName:'Test Member',gender:'Other',dateOfBirth:'1997-03-19',height:'175',maritalStatus:'Divorced',motherTongue:'Kannada',religion:'No religious affiliation',highestEducation:'Diploma',profession:'Designer',annualIncome:'0',city:'Mysuru',state:'Karnataka',country:'India',citizenship:'Indian',familyType:'Joint',familyStatus:'Prefer not to say',brothersCount:'0',sistersCount:'2',manglik:'Prefer not to say',diet:'Vegan',smoking:'No',drinking:'Occasionally',aboutMe:'My introduction.',phone:'+91 90000 00000',minAge:'22',maxAge:'35',minHeight:'140',maxHeight:'200',minIncome:'0'};
+const profile={...buildRegistrationProfile(details),id:'test',userId:'test',email:'member@example.com'};
+test('round-trips all registration biodata and preferences without account/privileged fields',()=>{
+ const values=profileFormValues(profile);
+ assert.deepEqual(validateProfileForm(values),{});
+ assert.equal(values.annualIncome,'0'); assert.equal(values.brothersCount,'0');
+ const payload=profileFormPayload(values,profile.partnerPreferences);
+ for(const key of Object.keys(payload)) assert.deepEqual(payload[key],profile[key]??'',key);
+ for(const key of ['phone','email','password','id','userId','premiumMember','isVerified','age']) assert.equal(payload[key],undefined,key);
+ assert.ok(profileSections.flatMap(section=>section.fields).every(field=>!['phone','email','password'].includes(field.name)));
+});
+test('validates empty numbers, units and ranges; supports multiple choices and clearing lists',()=>{
+ const values=profileFormValues(profile);
+ assert.ok(validateProfileForm({...values,height:'5.5'}).height);
+ assert.ok(validateProfileForm({...values,annualIncome:''}).annualIncome);
+ assert.ok(validateProfileForm({...values,minAge:'35',maxAge:'25'}).maxAge);
+ const edited={...values,preferredMaritalStatus:'Never Married, Divorced',preferredDiet:'Vegan, Vegetarian',languagesKnown:'Hindi, Kannada',hobbies:''};
+ assert.deepEqual(validateProfileForm(edited),{});
+ const payload=profileFormPayload(edited,{...profile.partnerPreferences,manglikPreference:'Any'});
+ assert.deepEqual(payload.partnerPreferences.maritalStatus,['Never Married','Divorced']);
+ assert.deepEqual(payload.partnerPreferences.diet,['Vegan','Vegetarian']);
+ assert.equal(payload.partnerPreferences.manglikPreference,'Any');
+ assert.deepEqual(payload.languagesKnown,['Hindi','Kannada']); assert.deepEqual(payload.hobbies,[]);
+});

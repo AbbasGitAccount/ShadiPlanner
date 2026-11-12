@@ -1,0 +1,123 @@
+import 'dotenv/config';
+import assert from 'node:assert/strict';
+import {randomUUID} from 'node:crypto';
+import {Pool} from 'pg';
+
+// All fixtures and migrations run inside a fresh schema, never application tables.
+const schema=`admin_test_${randomUUID().replaceAll('-','')}`;
+const administration=new Pool({connectionString:process.env.DATABASE_URL,connectionTimeoutMillis:10000});
+let pool,server;
+try {
+  await administration.query(`CREATE SCHEMA "${schema}"`);
+  const url=new URL(process.env.DATABASE_URL);url.hostname=url.hostname.replace('-pooler.','.');url.searchParams.set('options',`-c search_path=${schema}`);
+  process.env.DATABASE_URL=url.toString();process.env.JWT_SECRET='isolated-admin-tests';delete process.env.REDIS_URL;
+  ({pool}=await import('../dist/data/postgres.js'));
+  await pool.query(`CREATE TABLE auth_users(id TEXT PRIMARY KEY,email TEXT,password_hash TEXT,role TEXT,created_at TEXT,auth_version INTEGER DEFAULT 0,phone TEXT,phone_verified BOOLEAN DEFAULT FALSE);
+    CREATE TABLE app_migrations(name TEXT PRIMARY KEY,applied_at TIMESTAMPTZ DEFAULT NOW())`);
+  const {initializeProfileDatabase,saveProfile}=await import('../dist/data/profileDatabase.js');
+  const {initializeSubscriptions,membership}=await import('../dist/data/subscriptionDatabase.js');
+  const {initializeAdminDatabase}=await import('../dist/data/adminDatabase.js');
+  const {SEED_PROFILES}=await import('../dist/data/mockData.js');
+  await initializeProfileDatabase([]);await initializeSubscriptions([]);await initializeAdminDatabase();
+  // Restart after admin migrations add profile columns. Existing SQL views must retain their column order.
+  await initializeProfileDatabase([]);
+  for(const id of ['admin','alice','bob']) await pool.query('INSERT INTO auth_users(id,email,role,created_at) VALUES($1,$2,$3,$4)',[id,`${id}@example.com`,id==='admin'?'admin':'user',new Date().toISOString()]);
+  const bcrypt=(await import('bcryptjs')).default;
+  await pool.query("UPDATE auth_users SET password_hash=$1 WHERE id='admin'",[await bcrypt.hash('Admin-test-password!7',4)]);
+  for(const id of ['alice','bob']) await saveProfile({...SEED_PROFILES[0],id:`p-${id}`,userId:id,fullName:id==='alice'?'=FORMULA':'Bob',isVerified:true});
+  await pool.query("UPDATE auth_users SET created_at='2020-01-01T00:00:00Z' WHERE id='bob'");
+  const express=(await import('express')).default;const jwt=(await import('jsonwebtoken')).default;
+  const app=express();app.use(express.json());
+  app.use('/admin',(await import('../dist/routes/adminPanel.js')).default);
+  app.use('/consent',(await import('../dist/routes/matchConsent.js')).default);
+  app.use('/auth',(await import('../dist/routes/auth.js')).default);
+  app.use('/wedding',(await import('../dist/routes/wedding.js')).default);
+  const {db}=await import('../dist/data/db.js');
+  db.save=()=>{}; // Planner API tests operate only on this process's in-memory mirror.
+  db.checklist.push({id:'mobile-alice-task',userId:'alice',title:'Alice task',category:'Venue & Food',dueDate:'2026-12-01',completed:false},{id:'mobile-bob-task',userId:'bob',title:'Bob task',category:'Venue & Food',dueDate:'2026-12-01',completed:false});
+  db.budget.push({id:'mobile-bob-budget',userId:'bob',category:'Venue',allocatedAmount:1000,actualAmount:0,notes:''});
+  app.use((e,_req,res,_next)=>{console.error(e);res.status(500).json({message:'Test request failed'});});
+  server=app.listen(0,'127.0.0.1');await new Promise(resolve=>server.once('listening',resolve));
+  const base=`http://127.0.0.1:${server.address().port}`;
+  async function request(path,user='admin',body,method=body===undefined?'GET':'POST') {
+    const res=await fetch(base+path,{method,headers:{'Content-Type':'application/json',...(user?{Authorization:`Bearer ${jwt.sign({id:user,authVersion:0},process.env.JWT_SECRET)}`}:{})},...(body===undefined?{}:{body:JSON.stringify(body)})});
+    const text=await res.text();return {status:res.status,data:res.headers.get('content-type')?.includes('json')?JSON.parse(text):text,headers:res.headers};
+  }
+  const day=new Date().toISOString().slice(0,10);const range=`start=${day}&end=${day}`;
+  assert.equal((await request('/admin/users',null)).status,401);
+  assert.equal((await request('/admin/users','alice')).status,403);
+  assert.equal((await request('/wedding/checklist',null)).status,401);
+  assert.deepEqual((await request('/wedding/checklist','alice')).data.map(i=>i.id),['mobile-alice-task']);
+  assert.deepEqual((await request('/wedding/checklist','admin')).data,[]);
+  assert.equal((await request('/wedding/checklist/mobile-bob-task','alice',{completed:true},'PUT')).status,404);
+  assert.equal((await request('/wedding/checklist/mobile-bob-task','alice',undefined,'DELETE')).status,404);
+  assert.equal((await request('/wedding/checklist/mobile-alice-task','alice',{completed:'true'},'PUT')).status,400);
+  assert.equal((await request('/wedding/checklist/mobile-alice-task','alice',{completed:true},'PUT')).status,200);
+  assert.deepEqual((await request('/wedding/budget','alice')).data,[]);
+  assert.equal((await request('/wedding/budget/mobile-bob-budget','alice',{actualAmount:10},'PUT')).status,404);
+  assert.equal((await request('/wedding/budget/mobile-bob-budget','alice',undefined,'DELETE')).status,404);
+  assert.equal((await request('/wedding/budget/mobile-bob-budget','bob',{actualAmount:-1},'PUT')).status,400);
+  assert.equal((await request('/wedding/budget/mobile-bob-budget','bob',{actualAmount:100},'PUT')).status,200);
+  const signedIn=await request('/auth/login',null,{email:'admin@example.com',password:'Admin-test-password!7'});
+  assert.equal(signedIn.status,200);assert.equal(signedIn.data.user.role,'admin');
+  const signedInAccess=await fetch(base+'/admin/users',{headers:{Authorization:`Bearer ${signedIn.data.token}`}});
+  assert.equal(signedInAccess.status,200);await signedInAccess.json();
+  const attempts=await Promise.all(Array.from({length:11},()=>request('/auth/login',null,{email:'missing@example.invalid',password:'invalid-password'})));
+  assert.equal(attempts.filter(r=>r.status===401).length,10);assert.equal(attempts.filter(r=>r.status===429).length,1);
+  assert.equal((await request('/admin/users?page=0')).status,400);
+  assert.equal((await request('/admin/matches?preferences=mutual')).status,200);
+  assert.equal((await request('/admin/analytics?start=2026-02-31&end=2026-03-05')).status,400);
+  const users=await request('/admin/users');assert.equal(users.data.total,2);assert.ok(!JSON.stringify(users.data).includes('password_hash'));assert.ok(!JSON.stringify(users.data).includes('@example.com'));
+  assert.equal((await request(`/admin/users?period=range&${range}`)).data.total,1);
+  const beforeHide=(await request('/admin/users/bob')).data.profile;
+  assert.equal((await request('/admin/users/bob','admin',{action:'hide',expectedUpdatedAt:beforeHide.updated_at},'PUT')).status,200);
+  const hidden=await request('/admin/users?status=hidden');assert.equal(hidden.data.total,1);assert.equal(hidden.data.rows[0].id,'bob');
+  const beforeVerify=(await request('/admin/users/bob')).data.profile;
+  assert.equal((await request('/admin/users/bob','admin',{action:'verify',expectedUpdatedAt:beforeVerify.updated_at},'PUT')).status,200);
+  assert.equal((await pool.query("SELECT is_verified FROM matrimonial_profiles WHERE id='p-bob'")).rows[0].is_verified,true);
+  const detail=await request('/admin/users/alice');assert.equal(detail.status,200);assert.equal(detail.data.profile.phone,undefined);assert.equal(detail.data.profile.email,undefined);assert.equal(detail.data.profile.date_of_birth,undefined);
+  const gold=(await request('/admin/plans')).data.plans.find(p=>p.id==='gold');
+  const config={...gold,enabled:true,name:'Gold revised',pricePaise:149900,durationDays:30};
+  await pool.query("INSERT INTO user_subscriptions(user_id,plan_id,status,started_at,expires_at,plan_snapshot) VALUES('alice','gold','active',NOW(),NOW()+INTERVAL '30 days',$1)",[gold]);
+  assert.equal((await request('/admin/plans/gold','alice',{expected:gold,plan:config},'PUT')).status,403);
+  assert.equal((await request('/admin/plans/gold','admin',{expected:gold,plan:config},'PUT')).status,200);
+  assert.equal((await membership('alice')).plan.pricePaise,gold.pricePaise);
+  assert.equal((await request('/admin/plans/gold','admin',{expected:gold,plan:config},'PUT')).status,409);
+  await initializeSubscriptions([]);assert.equal((await request('/admin/plans')).data.plans.find(p=>p.id==='gold').name,'Gold revised');
+  assert.equal((await request('/admin/suggestions','admin',{firstId:'p-alice',secondId:'p-bob'})).status,200);
+  const suggestion=(await request('/consent/suggestions','alice')).data[0];assert.equal(suggestion.partner_id,null);
+  assert.equal((await request(`/consent/suggestions/${suggestion.id}`,'alice',{consent:true},'PUT')).status,200);
+  assert.equal((await request('/consent/suggestions','alice')).data[0].partner_id,null);
+  assert.equal((await request(`/consent/suggestions/${suggestion.id}`,'bob',{consent:true},'PUT')).status,200);
+  assert.equal((await request('/consent/suggestions','alice')).data[0].partner_id,'p-bob');
+  await request(`/consent/suggestions/${suggestion.id}`,'bob',{consent:false},'PUT');
+  assert.equal((await request('/consent/suggestions','alice')).data[0].partner_id,null);
+  assert.equal((await request('/consent/reports/p-bob','alice',{reason:'This profile may be impersonating someone.'})).status,201);
+  const reports=await request(`/admin/reports?${range}`);assert.equal(reports.data.total,1);
+  assert.equal((await request(`/admin/reports/${reports.data.rows[0].id}`,'admin',{status:'resolved'},'PUT')).status,200);
+  assert.equal((await request('/admin/users/alice','admin',{action:'reject',expectedUpdatedAt:'stale'},'PUT')).status,409);
+  const fresh=(await request('/admin/users/alice')).data.profile;
+  assert.equal((await request('/admin/users/alice','admin',{action:'reject',expectedUpdatedAt:fresh.updated_at},'PUT')).status,200);
+  assert.equal((await pool.query("SELECT is_verified FROM matrimonial_profiles WHERE id='p-alice'")).rows[0].is_verified,false);
+  assert.equal((await request('/admin/users/alice','admin',{action:'suspend'},'PUT')).status,200);
+  assert.equal((await request('/consent/suggestions','alice')).status,401);
+  await request('/admin/users/alice','admin',{action:'reactivate'},'PUT');
+  // The old session stays invalid after reactivation.
+  assert.equal((await request('/consent/suggestions','alice')).status,401);
+  const csv=await request(`/admin/export/users?${range}`);assert.equal(csv.status,200);assert.ok(csv.data.includes("'=FORMULA"));assert.ok(!csv.data.includes('@example.com'));
+  const metrics=await request(`/admin/analytics?${range}`);assert.equal(metrics.status,200);assert.equal(metrics.data.kpis.total_users,2);assert.equal(metrics.data.kpis.revenue_paise,0);
+  const revenue=await request(`/admin/export/revenue?${range}`);assert.equal(revenue.data,'No records\r\n');
+  assert.equal((await request('/admin/subscriptions/alice/cancel','admin',{})).status,200);
+  assert.equal((await membership('alice')).plan.id,'free');
+  assert.equal((await pool.query("SELECT COUNT(*)::int AS n FROM subscription_history WHERE user_id='alice'")).rows[0].n,1);
+  await pool.query("UPDATE auth_users SET role='user' WHERE id='admin'");
+  assert.equal((await request('/admin/users')).status,403);
+  await pool.query("UPDATE auth_users SET role='admin' WHERE id='admin'");
+  const audit=await request('/admin/audit');assert.ok(audit.data.rows.some(r=>r.action==='plan_change'));assert.equal(audit.headers.get('cache-control'),'no-store');
+  console.log('PASS: admin role enforcement, redaction, pagination, immutable paid snapshots, restart-safe plans, stale update rejection, two-party revocable consent, reports, suspension/session revocation, CSV safety, real analytics, cancellation and audit logging.');
+} finally {
+  if(server){server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}
+  if(pool)await pool.end();
+  if(!/^admin_test_[a-f0-9]+$/.test(schema))throw new Error('Invalid test schema');
+  await administration.query(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);await administration.end();
+}

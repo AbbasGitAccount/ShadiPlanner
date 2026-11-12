@@ -1,0 +1,5 @@
+import React from 'react';
+import { Redirect, Stack } from 'expo-router';
+import { useAuth } from '../../context/Auth';
+import { colors } from '../../components/ui';
+export default function MemberLayout() { const { user } = useAuth(); if (!user) return <Redirect href="/login" />; return <Stack screenOptions={{ headerStyle: { backgroundColor: colors.ivory }, headerTintColor: colors.wine, headerShadowVisible: false, contentStyle: { backgroundColor: colors.ivory } }}><Stack.Screen name="(tabs)" options={{ headerShown: false }} /><Stack.Screen name="profile/[id]" options={{ title: 'Member biodata' }} /><Stack.Screen name="chat/[id]" options={{ title: 'Conversation' }} /><Stack.Screen name="edit-profile" options={{ title: 'Edit my biodata' }} /><Stack.Screen name="plans" options={{ title: 'Membership plans' }} /><Stack.Screen name="settings" options={{ title: 'Account security' }} /><Stack.Screen name="wedding" options={{ title: 'Wedding planner' }} /><Stack.Screen name="admin" options={{ title: 'Administration' }} /></Stack>; }

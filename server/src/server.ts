@@ -1,0 +1,82 @@
+import adminRoutes from './routes/admin.js';
+import matchConsentRoutes from './routes/matchConsent.js';
+import express, { Request, Response, NextFunction } from 'express';
+import cors from 'cors';
+import dotenv from 'dotenv';
+import authRoutes from './routes/auth.js';
+import accountSecurityRoutes from './routes/accountSecurity.js';
+import profileRoutes from './routes/profiles.js';
+import interactionRoutes from './routes/interactions.js';
+import messageRoutes from './routes/messages.js';
+import weddingRoutes from './routes/wedding.js';
+import subscriptionRoutes from './routes/subscriptions.js';
+import { initializeAuthDatabase } from './data/authDatabase.js';
+import { initializeRedisCache, redisCacheStatus } from './data/redisCache.js';
+
+dotenv.config();
+
+const app = express();
+app.disable('x-powered-by');
+app.use((_req,res,next)=>{res.set('X-Content-Type-Options','nosniff');res.set('Referrer-Policy','strict-origin-when-cross-origin');next();});
+const PORT = process.env.PORT || 5000;
+
+// Middleware
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true }));
+
+// Request logger
+app.use((req, _res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
+  next();
+});
+
+// Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/account-security', accountSecurityRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/match-consent', matchConsentRoutes);
+app.use('/api/profiles', profileRoutes);
+app.use('/api/interactions', interactionRoutes);
+app.use('/api/messages', messageRoutes);
+app.use('/api/wedding', weddingRoutes);
+app.use('/api/subscriptions', subscriptionRoutes);
+
+// Health check
+app.get('/api/health', (_req, res) => {
+  res.json({
+    status: 'ok',
+    platform: 'ShadiPlanner Matrimony API',
+    timestamp: new Date().toISOString(),
+    cache: redisCacheStatus(),
+  });
+});
+
+app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
+  const status = (error as { status?: number })?.status;
+  if (status === 400 || status === 413) {
+    res.status(status).json({ message: status === 413 ? 'This upload is too large. Please choose a smaller file.' : 'Please check the information you submitted.' });
+    return;
+  }
+  console.error('Unhandled request error:', error);
+  res.status(500).json({ message: 'We could not complete your request. Please try again.' });
+});
+
+initializeAuthDatabase()
+  .then(async () => {
+    await initializeRedisCache();
+    app.listen(PORT, () => {
+      console.log(`=========================================`);
+      console.log(`🚀 ShadiPlanner Server running on port ${PORT}`);
+      console.log(`👉 http://localhost:${PORT}/api/health`);
+      console.log(`=========================================`);
+    });
+  })
+  .catch((error: unknown) => {
+    console.error('Could not initialize PostgreSQL authentication database:', error);
+    process.exitCode = 1;
+  });
