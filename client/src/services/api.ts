@@ -10,7 +10,18 @@ import {
 } from '../types';
 import { Membership, PlanId, SubscriptionCatalogue } from '../types/subscriptions';
 
-const API_BASE = '/api';
+const resolveApiBase = () => {
+  const envUrl =
+    (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_URL) ||
+    (typeof process !== 'undefined' && process.env?.VITE_API_URL);
+  if (!envUrl) {
+    return 'https://server-ten-taupe-32.vercel.app/api';
+  }
+  const trimmed = envUrl.trim().replace(/\/+$/, '');
+  return trimmed.endsWith('/api') ? trimmed : `${trimmed}/api`;
+};
+
+export const API_BASE = resolveApiBase();
 
 export interface AccountSecurity {
   email: string;
@@ -42,8 +53,7 @@ export class ApiError extends Error {
 
 const readJsonResponse = async <T>(res: Response, fallbackMessage: string): Promise<T> => {
   const body = await res.text();
-  let data: unknown;
-
+  let data: any;
   if (body) {
     try {
       data = JSON.parse(body);
@@ -63,10 +73,19 @@ const readJsonResponse = async <T>(res: Response, fallbackMessage: string): Prom
       typeof data.message === 'string'
         ? data.message
         : `${fallbackMessage} (HTTP ${res.status})`;
-    const fieldErrors = typeof data === 'object' && data !== null && 'fieldErrors' in data &&
-      typeof data.fieldErrors === 'object' && data.fieldErrors !== null && !Array.isArray(data.fieldErrors)
-      ? Object.fromEntries(Object.entries(data.fieldErrors).filter((entry): entry is [string, string] => typeof entry[1] === 'string'))
-      : undefined;
+
+    const fieldErrors =
+      typeof data === 'object' &&
+      data !== null &&
+      'fieldErrors' in data &&
+      typeof data.fieldErrors === 'object' &&
+      data.fieldErrors !== null &&
+      !Array.isArray(data.fieldErrors)
+        ? Object.fromEntries(
+            Object.entries(data.fieldErrors).filter((entry): entry is [string, string] => typeof entry[1] === 'string')
+          )
+        : undefined;
+
     throw new ApiError(message, fieldErrors && Object.keys(fieldErrors).length ? fieldErrors : undefined);
   }
 
@@ -89,26 +108,28 @@ const getHeaders = () => {
 };
 
 export const api = {
+  // --- Account Security & Subscriptions ---
   changeEmail: async (newEmail: string, confirmEmail: string, currentPassword: string): Promise<{ message: string }> => readJsonResponse(await fetch(`${API_BASE}/account-security/email`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ newEmail, confirmEmail, currentPassword }) }), 'Could not update your email address'),
   getSubscriptionPlans: async (): Promise<SubscriptionCatalogue> => readJsonResponse(await fetch(`${API_BASE}/subscriptions/plans`), 'Could not load subscription plans'),
   getSubscription: async (): Promise<Membership> => readJsonResponse(await fetch(`${API_BASE}/subscriptions/me`, { headers: getHeaders() }), 'Could not load your subscription'),
   createSubscriptionCheckout: async (planId: PlanId): Promise<{ orderId: string; checkoutUrl: string }> => readJsonResponse(await fetch(`${API_BASE}/subscriptions/checkout`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ planId }) }), 'Could not start checkout'),
   getAccountSecurity: async (): Promise<AccountSecurity> => {
     const res = await fetch(`${API_BASE}/account-security`, { headers: getHeaders() });
-    return readJsonResponse(res, 'Could not load account settings');
+    return readJsonResponse<AccountSecurity>(res, 'Could not load account security settings');
   },
   changePassword: async (data: { currentPassword: string; newPassword: string; confirmPassword: string }): Promise<{ message: string }> => {
     const res = await fetch(`${API_BASE}/account-security/password`, { method: 'POST', headers: getHeaders(), body: JSON.stringify(data) });
-    return readJsonResponse(res, 'Could not change your password');
+    return readJsonResponse<{ message: string }>(res, 'Could not update your password');
   },
   startPhoneTest: async (phone: string, currentPassword: string): Promise<PhoneTestChallenge> => {
     const res = await fetch(`${API_BASE}/account-security/phone/test-code`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ phone, currentPassword }) });
-    return readJsonResponse(res, 'Could not create a test code');
+    return readJsonResponse<PhoneTestChallenge>(res, 'Could not create a test code');
   },
-  confirmPhoneTest: async (challengeId: string, code: string): Promise<{ message: string; phone: string }> => {
+  confirmPhoneTest: async (challengeId: string, code: string): Promise<{ message: string; phone: string; phoneVerified: boolean }> => {
     const res = await fetch(`${API_BASE}/account-security/phone/confirm-test`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ challengeId, code }) });
-    return readJsonResponse(res, 'Could not complete the test');
+    return readJsonResponse<{ message: string; phone: string; phoneVerified: boolean }>(res, 'Could not verify test phone number');
   },
+
   // --- Auth ---
   login: async (email: string, password: string): Promise<AuthResponse> => {
     const res = await fetch(`${API_BASE}/auth/login`, {
@@ -116,16 +137,16 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
     });
-    return readJsonResponse<AuthResponse>(res, 'Login failed');
+    return readJsonResponse<AuthResponse>(res, 'Could not sign in to your account');
   },
 
-  register: async (data: Record<string, unknown>): Promise<AuthResponse> => {
+  register: async (data: any): Promise<AuthResponse> => {
     const res = await fetch(`${API_BASE}/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
-    return readJsonResponse<AuthResponse>(res, 'Registration failed');
+    return readJsonResponse<AuthResponse>(res, 'Could not complete registration');
   },
 
   getCurrentUser: async () => {
@@ -133,7 +154,12 @@ export const api = {
       headers: getHeaders(),
     });
     if (!res.ok) return null;
-    return res.json();
+    return readJsonResponse<any>(res, 'Could not verify your session');
+  },
+
+  getDemoAccounts: async () => {
+    const res = await fetch(`${API_BASE}/auth/demo-accounts`);
+    return readJsonResponse<any>(res, 'Could not load test accounts');
   },
 
   // --- Profiles ---
@@ -142,16 +168,17 @@ export const api = {
     const res = await fetch(`${API_BASE}/profiles?${query}`, {
       headers: getHeaders(),
     });
-    if (!res.ok) throw new Error('Failed to fetch profiles');
-    return res.json();
+    return readJsonResponse<{ total: number; profiles: MatrimonialProfile[] }>(
+      res,
+      'Could not load matrimonial profiles'
+    );
   },
 
   getProfileById: async (id: string): Promise<MatrimonialProfile> => {
     const res = await fetch(`${API_BASE}/profiles/${id}`, {
       headers: getHeaders(),
     });
-    if (!res.ok) throw new Error('Profile not found');
-    return res.json();
+    return readJsonResponse<MatrimonialProfile>(res, 'Could not load this profile');
   },
 
   getRecommendedProfiles: async (): Promise<MatrimonialProfile[]> => {
@@ -159,21 +186,25 @@ export const api = {
       headers: getHeaders(),
     });
     if (!res.ok) return [];
-    return res.json();
+    return readJsonResponse<MatrimonialProfile[]>(res, 'Could not load recommended profiles');
   },
 
   getPlatformStats: async () => {
     const res = await fetch(`${API_BASE}/profiles/stats`);
-    return readJsonResponse<{ totalMembers: number; activeMatches: number; phoneVerifiedProfiles: number; verifiedRate: string }>(res, 'Could not load platform statistics');
+    return readJsonResponse<any>(res, 'Could not load platform statistics');
   },
 
-  updateProfile: async (id: string, data: Partial<MatrimonialProfile>) => {
+  updateProfile: async (id: string, data: Partial<MatrimonialProfile>, ifUnmodifiedSince?: string) => {
+    const headers = getHeaders();
+    if (ifUnmodifiedSince) {
+      headers['If-Unmodified-Since'] = ifUnmodifiedSince;
+    }
     const res = await fetch(`${API_BASE}/profiles/${id}`, {
       method: 'PUT',
-      headers: getHeaders(),
+      headers,
       body: JSON.stringify(data),
     });
-    return readJsonResponse<MatrimonialProfile>(res, 'Could not update your profile');
+    return readJsonResponse<MatrimonialProfile>(res, 'Could not update your biodata');
   },
 
   // --- Interactions ---
@@ -183,11 +214,10 @@ export const api = {
       headers: getHeaders(),
       body: JSON.stringify({ message }),
     });
-    if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.message || 'Failed to send interest');
-    }
-    return res.json();
+    return readJsonResponse<{ message: string; interest: InterestRequest }>(
+      res,
+      'Could not send interest'
+    );
   },
 
   respondToInterest: async (interestId: string, action: 'accepted' | 'declined') => {
@@ -196,16 +226,20 @@ export const api = {
       headers: getHeaders(),
       body: JSON.stringify({ action }),
     });
-    if (!res.ok) throw new Error('Failed to respond to interest');
-    return res.json();
+    return readJsonResponse<{ message: string; interest: InterestRequest }>(
+      res,
+      'Could not update interest status'
+    );
   },
 
   getInterests: async () => {
     const res = await fetch(`${API_BASE}/interactions/interests`, {
       headers: getHeaders(),
     });
-    if (!res.ok) throw new Error('Failed to load interests');
-    return res.json();
+    return readJsonResponse<{ received: InterestRequest[]; sent: InterestRequest[]; connected: InterestRequest[] }>(
+      res,
+      'Could not load your interests'
+    );
   },
 
   toggleShortlist: async (profileId: string) => {
@@ -213,8 +247,10 @@ export const api = {
       method: 'POST',
       headers: getHeaders(),
     });
-    if (!res.ok) throw new Error('Failed to update shortlist');
-    return res.json();
+    return readJsonResponse<{ shortlisted: boolean; message: string }>(
+      res,
+      'Could not update your shortlist'
+    );
   },
 
   getShortlists: async (): Promise<MatrimonialProfile[]> => {
@@ -234,21 +270,21 @@ export const api = {
   },
 
   // --- Messages ---
-  getConversations: async (): Promise<ConversationSummary[]> => {
+  getConversations: async () => {
     const res = await fetch(`${API_BASE}/messages/conversations`, {
       headers: getHeaders(),
     });
     return readJsonResponse<ConversationSummary[]>(res, 'Could not load conversations');
   },
 
-  getMessages: async (partnerProfileId: string): Promise<ChatMessage[]> => {
+  getMessages: async (partnerProfileId: string) => {
     const res = await fetch(`${API_BASE}/messages/${encodeURIComponent(partnerProfileId)}`, {
       headers: getHeaders(),
     });
     return readJsonResponse<ChatMessage[]>(res, 'Could not load this conversation');
   },
 
-  sendMessage: async (partnerProfileId: string, content: string): Promise<ChatMessage> => {
+  sendMessage: async (partnerProfileId: string, content: string) => {
     const res = await fetch(`${API_BASE}/messages/${encodeURIComponent(partnerProfileId)}`, {
       method: 'POST',
       headers: getHeaders(),
@@ -258,7 +294,7 @@ export const api = {
   },
 
   // --- Wedding Planner ---
-  getVendors: async (category?: string, city?: string): Promise<Vendor[]> => {
+  getVendors: async (category?: string, city?: string) => {
     const query = new URLSearchParams();
     if (category) query.append('category', category);
     if (city) query.append('city', city);
@@ -266,7 +302,7 @@ export const api = {
     return readJsonResponse<Vendor[]>(res, 'Could not load the wedding vendor directory');
   },
 
-  getChecklist: async (): Promise<WeddingChecklistItem[]> => {
+  getChecklist: async () => {
     const res = await fetch(`${API_BASE}/wedding/checklist`, {
       headers: getHeaders(),
     });
@@ -300,7 +336,7 @@ export const api = {
     return res.json();
   },
 
-  getBudget: async (): Promise<WeddingBudgetItem[]> => {
+  getBudget: async () => {
     const res = await fetch(`${API_BASE}/wedding/budget`, {
       headers: getHeaders(),
     });

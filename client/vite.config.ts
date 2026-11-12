@@ -7,11 +7,10 @@ export default defineConfig({
     port: 3000,
     proxy: {
       '/api': {
-        target: 'http://localhost:5000',
+        target: process.env.VITE_API_URL || 'https://server-ten-taupe-32.vercel.app',
         changeOrigin: true,
         secure: false,
       },
     },
   },
 });
-
