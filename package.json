@@ -3,14 +3,18 @@
   "version": "1.0.0",
   "description": "Full-Stack Matrimonial & Wedding Planning Web Application built with React TypeScript & Node.js TypeScript",
   "private": true,
+  "workspaces": [
+    "server",
+    "client"
+  ],
   "scripts": {
     "dev": "concurrently -n \"BACKEND,FRONTEND\" -c \"cyan,magenta\" \"npm run dev --prefix server\" \"npm run dev --prefix client\"",
     "dev:server": "npm run dev --prefix server",
     "dev:client": "npm run dev --prefix client",
-    "build": "npm run build --prefix server && npm run build --prefix client",
+    "build": "npm run build --prefix server && npm run build --prefix client && node -e \"const fs=require('fs'); if(fs.existsSync('client/dist')){fs.cpSync('client/dist','dist',{recursive:true});}\"",
     "build:client": "npm run build --prefix client",
     "build:server": "npm run build --prefix server",
-    "install:all": "npm --prefix server install && npm --prefix client install",
+    "install:all": "npm install",
     "redis:up": "docker compose -f compose.redis.yaml up -d",
     "redis:down": "docker compose -f compose.redis.yaml down",
     "redis:check": "npm --prefix server run redis:check",
