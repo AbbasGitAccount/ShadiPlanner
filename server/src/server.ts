@@ -54,6 +54,25 @@ export const ensureDatabaseInitialized = (): Promise<void> => {
   return initPromise;
 };
 
+// Root API landing
+app.get('/', (_req, res) => {
+  res.json({
+    status: 'online',
+    platform: 'ShadiPlanner Matrimony API',
+    message: 'Backend server is running successfully.',
+    health: '/api/health',
+    endpoints: [
+      '/api/health',
+      '/api/profiles',
+      '/api/auth',
+      '/api/interactions',
+      '/api/messages',
+      '/api/wedding',
+      '/api/subscriptions',
+    ],
+  });
+});
+
 // Health check (responds even if database is still connecting or encountering issues)
 app.get('/api/health', async (_req, res) => {
   let dbStatus = 'ok';
