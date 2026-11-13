@@ -15,7 +15,7 @@ const resolveApiBase = () => {
     (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_API_URL) ||
     (typeof process !== 'undefined' && process.env?.VITE_API_URL);
   if (!envUrl) {
-    return 'https://server-ten-taupe-32.vercel.app/api';
+    return 'https://server-git-main-abbas1-54fd.vercel.app/api';
   }
   const trimmed = envUrl.trim().replace(/\/+$/, '');
   return trimmed.endsWith('/api') ? trimmed : `${trimmed}/api`;

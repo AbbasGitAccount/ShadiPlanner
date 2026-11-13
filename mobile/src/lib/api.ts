@@ -3,7 +3,7 @@ import { createTransport, normalizeBase } from './transport';
 
 const host = Constants.expoConfig?.hostUri?.split(':')[0];
 const configured = process.env.EXPO_PUBLIC_API_URL;
-const DEFAULT_API_URL = 'https://server-ten-taupe-32.vercel.app/api';
+const DEFAULT_API_URL = 'https://server-git-main-abbas1-54fd.vercel.app/api';
 
 function configuration() {
   try {

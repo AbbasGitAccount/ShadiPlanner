@@ -4,7 +4,7 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "https://server-ten-taupe-32.vercel.app/api/$1"
+      "destination": "https://server-git-main-abbas1-54fd.vercel.app/api/$1"
     },
     {
       "source": "/(.*)",
