@@ -4,10 +4,18 @@ import path from 'node:path';
 
 import { execSync } from 'node:child_process';
 
+function getGitBinary() {
+  const custom = 'C:\\Users\\farhad abbas\\AppData\\Local\\GitHubDesktop\\app-3.6.7\\resources\\app\\git\\cmd\\git.exe';
+  if (fs.existsSync(custom)) return `"${custom}"`;
+  return 'git';
+}
+
 function getGitHubToken() {
   if (process.env.GITHUB_TOKEN) return process.env.GITHUB_TOKEN;
+  const gitBin = getGitBinary();
   try {
-    const creds = execSync('echo protocol=https\nhost=github.com\n | git credential fill', {
+    const creds = execSync(`${gitBin} credential fill`, {
+      input: 'protocol=https\nhost=github.com\n\n',
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'ignore'],
     });
@@ -27,10 +35,13 @@ if (!token) {
 const owner = 'AbbasGitAccount';
 const repo = 'ShadiPlanner';
 const tag = 'v1.0.0';
-const apkPath = path.resolve('mobile/android/app/build/outputs/apk/debug/app-debug.apk');
+
+const releaseApk = path.resolve('mobile/android/app/build/outputs/apk/release/app-release.apk');
+const debugApk = path.resolve('mobile/android/app/build/outputs/apk/debug/app-debug.apk');
+const apkPath = fs.existsSync(releaseApk) ? releaseApk : debugApk;
 
 if (!fs.existsSync(apkPath)) {
-  console.error('APK file not found at:', apkPath);
+  console.error('APK file not found at release or debug path:', releaseApk);
   process.exit(1);
 }
 
