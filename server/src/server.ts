@@ -10,6 +10,7 @@ import interactionRoutes from './routes/interactions.js';
 import messageRoutes from './routes/messages.js';
 import weddingRoutes from './routes/wedding.js';
 import subscriptionRoutes from './routes/subscriptions.js';
+import appDownloadRoutes from './routes/appDownload.js';
 import { initializeAuthDatabase } from './data/authDatabase.js';
 import { initializeRedisCache, redisCacheStatus } from './data/redisCache.js';
 
@@ -69,6 +70,8 @@ app.get('/', (_req, res) => {
       '/api/messages',
       '/api/wedding',
       '/api/subscriptions',
+      '/api/download/apk',
+      '/api/download/info',
     ],
   });
 });
@@ -93,7 +96,11 @@ app.get('/api/health', async (_req, res) => {
 
 // Ensure database is initialized before any business route handler executes
 app.use(async (req: Request, _res: Response, next: NextFunction) => {
-  if (req.path === '/api/health') {
+  if (
+    req.path === '/api/health' ||
+    req.path.startsWith('/api/download') ||
+    req.path.startsWith('/api/app')
+  ) {
     return next();
   }
   try {
@@ -114,6 +121,8 @@ app.use('/api/interactions', interactionRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/wedding', weddingRoutes);
 app.use('/api/subscriptions', subscriptionRoutes);
+app.use('/api/download', appDownloadRoutes);
+app.use('/api/app', appDownloadRoutes);
 
 // Error handling middleware
 app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {

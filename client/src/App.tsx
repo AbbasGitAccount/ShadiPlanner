@@ -18,6 +18,7 @@ import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { AdminPage } from './pages/AdminPage';
 import { AccountSecurityPage } from './pages/AccountSecurityPage';
+import { DownloadAppPage } from './pages/DownloadAppPage';
 import { RequireAuth } from './components/RequireAuth';
 
 const SiteFooter: React.FC = () => useLocation().pathname.startsWith('/admin') ? null : <Footer />;
@@ -59,6 +60,7 @@ export const App: React.FC = () => {
               <Route path="/register" element={<RegisterPage />} />
               <Route path="/admin/*" element={<AdminPage />} />
               <Route path="/account-settings" element={<RequireAuth><AccountSecurityPage /></RequireAuth>} />
+              <Route path="/download" element={<DownloadAppPage />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </MemberLayout>

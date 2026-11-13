@@ -1,6 +1,6 @@
-﻿import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowRight, ArrowUpRight, Building2, Camera, Check, ClipboardCheck, Flower2, Heart, IndianRupee, MapPin, Music2, Palette, Search, ShieldCheck, Sparkles, UtensilsCrossed } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, Building2, Camera, Check, ClipboardCheck, Flower2, Heart, IndianRupee, MapPin, Music2, Palette, Search, ShieldCheck, Sparkles, UtensilsCrossed, Smartphone, Download } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { MatrimonialProfile, Vendor } from '../types';
@@ -111,6 +111,27 @@ export const HomePage: React.FC = () => {
       </section>
 
       <section className="max-w-7xl mx-auto px-5 sm:px-8" aria-labelledby="together-title"><div className="grid lg:grid-cols-2 rounded-[1.75rem] overflow-hidden bg-[#783046]"><div className="p-7 sm:p-12 lg:p-14 text-white"><p className="wedding-eyebrow !text-[#dfbaa6]">BEFORE THE WEDDING, THERE'S YOUR STORY</p><h2 id="together-title" className="font-playfair text-3xl sm:text-4xl leading-tight mt-4">Find your person.<br /><span className="italic text-[#ebccb8]">Then plan your forever.</span></h2><p className="mt-5 text-sm leading-7 text-[#ead7dc] max-w-md">Build your biodata, share what matters to you, and discover people with a shared vision for life. Explore matches after signing in.</p><div className="flex flex-wrap gap-3 mt-7"><Link to={user ? '/matches' : '/register'} className="rounded-lg bg-[#fff9ef] px-5 py-3 text-sm font-semibold text-[#783046] inline-flex items-center gap-2">{user ? 'Search matches' : 'Create your profile'}<ArrowRight className="w-4 h-4" /></Link>{!user && <Link to="/matches" className="inline-flex items-center gap-2 px-4 py-3 text-sm text-[#f4e5e3] hover:underline">Already a member? Log in</Link>}</div><p className="mt-6 flex items-center gap-2 text-xs text-[#dcbac1]"><ShieldCheck className="w-4 h-4" />Contact details unlock after an accepted connection.</p></div><div className="relative min-h-[260px] lg:min-h-full"><img src="/images/wedding-details.jpg" alt="Flowers and warm details at a wedding reception table" loading="lazy" className="absolute inset-0 w-full h-full object-cover" /></div></div></section>
+
+      <section className="max-w-7xl mx-auto px-5 sm:px-8 pt-12" aria-labelledby="mobile-app-banner">
+        <div className="rounded-[1.75rem] border border-[#e8d9d2] bg-gradient-to-r from-[#fff5f2] to-[#fbf0ec] p-6 sm:p-10 flex flex-col md:flex-row items-center justify-between gap-6 shadow-sm">
+          <div className="flex items-center gap-5">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-rose-600 to-amber-500 text-white flex items-center justify-center shadow-md shadow-rose-200 shrink-0">
+              <Smartphone className="w-8 h-8" />
+            </div>
+            <div>
+              <span className="text-[11px] font-bold tracking-wider text-rose-700 uppercase">ShadiPlanner for Android</span>
+              <h3 id="mobile-app-banner" className="font-playfair text-xl sm:text-2xl font-bold text-slate-900 mt-0.5">Take your search & wedding planning with you.</h3>
+              <p className="text-xs sm:text-sm text-[#735e65] mt-1 max-w-xl">Download the standalone APK directly to your phone. Browse biodatas, chat with matches, and keep checklists handy.</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3 shrink-0 w-full sm:w-auto justify-end">
+            <Link to="/download" className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white px-5 py-3 text-sm font-semibold shadow-sm transition">
+              <Download className="w-4 h-4" />
+              <span>Download APK</span>
+            </Link>
+          </div>
+        </div>
+      </section>
 
 
 

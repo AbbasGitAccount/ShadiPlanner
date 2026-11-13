@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Search, Heart, Inbox, Send, Eye, MessageCircle, CalendarHeart, Settings, UserRound, ShieldCheck, HelpCircle, LogOut, ArrowUpRight, Crown } from 'lucide-react';
+import { Search, Heart, Inbox, Send, Eye, MessageCircle, CalendarHeart, Settings, UserRound, ShieldCheck, HelpCircle, LogOut, ArrowUpRight, Crown, Smartphone } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export const MemberNavigation: React.FC<{ onNavigate?: () => void }> = ({ onNavigate }) => {
@@ -23,6 +23,7 @@ export const MemberNavigation: React.FC<{ onNavigate?: () => void }> = ({ onNavi
     { label: 'Plan & manage', items: [
       { to: '/subscriptions', label: 'Subscription plans', Icon: Crown },
       { to: '/shadi-planner', label: 'Wedding planner', Icon: CalendarHeart },
+      { to: '/download', label: 'Download Android app', Icon: Smartphone },
       { to: '/account-settings', label: 'Account settings', Icon: Settings },
       { to: '/contact', label: 'Help & contact', Icon: HelpCircle },
     ] },

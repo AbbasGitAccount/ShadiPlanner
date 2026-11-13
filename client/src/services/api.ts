@@ -23,6 +23,32 @@ const resolveApiBase = () => {
 
 export const API_BASE = resolveApiBase();
 
+export interface ApkDownloadInfo {
+  available: boolean;
+  appName: string;
+  packageName: string;
+  version: string;
+  versionCode: number;
+  buildType: string;
+  minAndroidVersion: string;
+  architectures: string[];
+  fileName: string;
+  downloadUrl: string;
+  externalUrl?: string | null;
+  fileSize?: number | null;
+  fileSizeFormatted?: string;
+  installGuide?: string[];
+  message?: string;
+}
+
+export const getApkDownloadUrl = (): string => {
+  const customUrl =
+    (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_APK_DOWNLOAD_URL) ||
+    (typeof process !== 'undefined' && process.env?.VITE_APK_DOWNLOAD_URL);
+  if (customUrl) return customUrl.trim();
+  return `${API_BASE}/download/apk`;
+};
+
 export interface AccountSecurity {
   email: string;
   phone: string;
@@ -367,6 +393,14 @@ export const api = {
       method: 'DELETE',
       headers: getHeaders(),
     });
+    return res.json();
+  },
+
+  getApkInfo: async (): Promise<ApkDownloadInfo> => {
+    const res = await fetch(`${API_BASE}/download/info`);
+    if (!res.ok) {
+      throw new Error('Failed to retrieve APK build information');
+    }
     return res.json();
   },
 };
