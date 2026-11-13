@@ -91,32 +91,34 @@ function findLocalApk(): ApkFileInfo | null {
   return null;
 }
 
+const GITHUB_RELEASE_APK_URL =
+  'https://github.com/AbbasGitAccount/ShadiPlanner/releases/download/v1.0.0/ShadiPlanner.apk';
+
 /**
  * GET /api/download/info
  * Returns metadata about the latest mobile APK build and availability.
  */
 router.get('/info', (_req: Request, res: Response) => {
   const localApk = findLocalApk();
-  const externalUrl = process.env.APK_DOWNLOAD_URL?.trim() || null;
-  const isAvailable = Boolean(localApk || externalUrl);
+  const externalUrl = process.env.APK_DOWNLOAD_URL?.trim() || GITHUB_RELEASE_APK_URL;
 
   const sizeFormatted = localApk
     ? `${(localApk.size / (1024 * 1024)).toFixed(1)} MB`
-    : '~254 MB';
+    : '254.2 MB';
 
   res.json({
-    available: isAvailable,
+    available: true,
     appName: 'ShadiPlanner',
     packageName: 'com.shadiplanner.app',
     version: '1.0.0',
     versionCode: 1,
-    buildType: localApk?.buildType || (externalUrl ? 'release' : 'debug'),
+    buildType: localApk?.buildType || 'release',
     minAndroidVersion: 'Android 8.0 (Oreo / API 26)+',
     architectures: ['arm64-v8a', 'armeabi-v7a', 'x86_64'],
     fileName: 'ShadiPlanner.apk',
     downloadUrl: '/api/download/apk',
     externalUrl,
-    fileSize: localApk?.size || null,
+    fileSize: localApk?.size || 266598141,
     fileSizeFormatted: sizeFormatted,
     installGuide: [
       'Download ShadiPlanner.apk directly to your Android device.',
@@ -132,33 +134,26 @@ router.get('/info', (_req: Request, res: Response) => {
  * Serves the Android APK file or redirects to a cloud release URL if configured.
  */
 router.get('/apk', (_req: Request, res: Response) => {
-  const externalUrl = process.env.APK_DOWNLOAD_URL?.trim();
-  if (externalUrl) {
-    return res.redirect(302, externalUrl);
-  }
-
+  const externalUrl = process.env.APK_DOWNLOAD_URL?.trim() || GITHUB_RELEASE_APK_URL;
   const localApk = findLocalApk();
-  if (!localApk) {
-    return res.status(404).json({
-      error: 'APK not found',
-      message:
-        'The Android APK is not currently hosted on this server instance. Run "cd mobile/android && ./gradlew assembleDebug" to build it locally, or set the APK_DOWNLOAD_URL environment variable to a cloud storage or GitHub Release link.',
-      status: 404,
+
+  // If running locally and the local build file exists, serve it directly
+  if (localApk) {
+    res.setHeader('Content-Type', 'application/vnd.android.package-archive');
+    res.setHeader('Content-Disposition', 'attachment; filename="ShadiPlanner.apk"');
+    res.setHeader('Content-Length', localApk.size);
+    res.setHeader('Cache-Control', 'public, max-age=3600');
+
+    return res.download(localApk.path, 'ShadiPlanner.apk', (err) => {
+      if (err && !res.headersSent) {
+        console.error('Error sending local APK download:', err);
+        return res.redirect(302, externalUrl);
+      }
     });
   }
 
-  // Set explicit download headers
-  res.setHeader('Content-Type', 'application/vnd.android.package-archive');
-  res.setHeader('Content-Disposition', 'attachment; filename="ShadiPlanner.apk"');
-  res.setHeader('Content-Length', localApk.size);
-  res.setHeader('Cache-Control', 'public, max-age=3600');
-
-  return res.download(localApk.path, 'ShadiPlanner.apk', (err) => {
-    if (err && !res.headersSent) {
-      console.error('Error sending APK download:', err);
-      res.status(500).json({ error: 'Failed to stream APK download' });
-    }
-  });
+  // In cloud/serverless environment (e.g. Vercel), redirect directly to GitHub Releases hosted APK
+  return res.redirect(302, externalUrl);
 });
 
 // Alias for root of this router

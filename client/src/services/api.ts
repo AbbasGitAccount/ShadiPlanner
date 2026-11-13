@@ -41,12 +41,15 @@ export interface ApkDownloadInfo {
   message?: string;
 }
 
+export const DEFAULT_APK_DOWNLOAD_URL =
+  'https://github.com/AbbasGitAccount/ShadiPlanner/releases/download/v1.0.0/ShadiPlanner.apk';
+
 export const getApkDownloadUrl = (): string => {
   const customUrl =
     (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_APK_DOWNLOAD_URL) ||
     (typeof process !== 'undefined' && process.env?.VITE_APK_DOWNLOAD_URL);
   if (customUrl) return customUrl.trim();
-  return `${API_BASE}/download/apk`;
+  return DEFAULT_APK_DOWNLOAD_URL;
 };
 
 export interface AccountSecurity {

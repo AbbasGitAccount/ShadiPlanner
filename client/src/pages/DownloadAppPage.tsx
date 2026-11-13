@@ -25,7 +25,7 @@ export const DownloadAppPage: React.FC = () => {
   const [copied, setCopied] = useState(false);
   const [downloadStarted, setDownloadStarted] = useState(false);
 
-  const downloadUrl = getApkDownloadUrl();
+  const downloadUrl = apkInfo?.externalUrl || getApkDownloadUrl();
 
   useEffect(() => {
     let mounted = true;
@@ -42,12 +42,14 @@ export const DownloadAppPage: React.FC = () => {
             packageName: 'com.shadiplanner.app',
             version: '1.0.0',
             versionCode: 1,
-            buildType: 'debug',
+            buildType: 'release',
             minAndroidVersion: 'Android 8.0 (API 26)+',
             architectures: ['arm64-v8a', 'armeabi-v7a', 'x86_64'],
             fileName: 'ShadiPlanner.apk',
             downloadUrl: downloadUrl,
-            fileSizeFormatted: '~254 MB',
+            externalUrl: downloadUrl,
+            fileSize: 266598141,
+            fileSizeFormatted: '254.2 MB',
           });
         }
       })
@@ -58,7 +60,7 @@ export const DownloadAppPage: React.FC = () => {
     return () => {
       mounted = false;
     };
-  }, [downloadUrl]);
+  }, []);
 
   const handleCopyLink = async () => {
     try {
