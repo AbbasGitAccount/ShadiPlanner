@@ -15,7 +15,6 @@ export const Navbar: React.FC = () => {
     { to: '/about', label: 'About us' },
     { to: '/contact', label: 'Contact' },
     { to: '/subscriptions', label: 'Membership plans' },
-    { to: '/shadi-planner?tab=vendors', label: 'Wedding vendors' },
     { to: '/shadi-planner', label: 'Wedding planner' },
     { to: '/download', label: 'Get Android App' },
   ];
