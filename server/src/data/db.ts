@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
 import { fileURLToPath } from 'url';
 import bcrypt from 'bcryptjs';
 import { readJsonStore, writeJsonAtomically } from './jsonStore.js';
@@ -24,8 +25,26 @@ import {
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+function resolveStorePath(): string {
+  const defaultPath = path.resolve(__dirname, '../../src/data/store.json');
+  const isServerless = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
+  if (isServerless) {
+    const tmpPath = path.join(os.tmpdir(), 'shadi_store.json');
+    if (!fs.existsSync(tmpPath) && fs.existsSync(defaultPath)) {
+      try {
+        fs.copyFileSync(defaultPath, tmpPath);
+      } catch (err) {
+        console.warn('Could not initialize /tmp/shadi_store.json mirror:', (err as Error)?.message);
+      }
+    }
+    return tmpPath;
+  }
+  return defaultPath;
+}
+
 // Development and compiled builds must use the same legacy store during migration.
-const STORE_FILE = path.resolve(__dirname, '../../src/data/store.json');
+const STORE_FILE = resolveStorePath();
 
 interface DatabaseStore {
   users: User[];
@@ -60,11 +79,17 @@ class DatabaseManager {
             migrated = true;
           }
         }
-        if (migrated) writeJsonAtomically(STORE_FILE, store);
+        if (migrated) {
+          try {
+            writeJsonAtomically(STORE_FILE, store);
+          } catch (e) {
+            console.warn('Could not persist migration to store file:', (e as Error)?.message);
+          }
+        }
         return store;
       }
     } catch (e) {
-      throw new Error('Could not read the existing local store. Startup stopped to preserve your data.', { cause: e });
+      console.warn('Could not read the existing local store file:', (e as Error)?.message);
     }
 
     // Default seed initialization
@@ -161,7 +186,7 @@ class DatabaseManager {
     try {
       writeJsonAtomically(STORE_FILE, initialStore);
     } catch (e) {
-      throw new Error('Could not create the local store.', { cause: e });
+      console.warn('Could not write initial store to disk (operating in memory):', (e as Error)?.message);
     }
 
     return initialStore;
@@ -171,7 +196,7 @@ class DatabaseManager {
     try {
       writeJsonAtomically(STORE_FILE, this.data);
     } catch (e) {
-      throw new Error('Could not save local application data.', { cause: e });
+      console.warn('Could not save local application data to disk (operating in memory):', (e as Error)?.message);
     }
   }
 

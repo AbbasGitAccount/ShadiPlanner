@@ -5,7 +5,19 @@ import { Router, Response } from 'express';
 import { db } from '../data/db.js';
 import { AuthenticatedRequest, authenticateToken } from '../middleware/auth.js';
 import { ChatMessage } from '../models/types.js';
-import { AdminMessagingError, administratorConversations, memberAdministratorConversations, readAdministratorThread, replyToAdministrator, sendAdministratorMessage } from '../data/adminMessagingDatabase.js';
+import {
+  AdminMessagingError,
+  administratorConversations,
+  memberAdministratorConversations,
+  readAdministratorThread,
+  replyToAdministrator,
+  sendAdministratorMessage,
+} from '../data/adminMessagingDatabase.js';
+import {
+  getMemberThread,
+  sendMemberMessage,
+  getMemberConversationsMap,
+} from '../data/memberMessagingDatabase.js';
 
 const router = Router();
 router.use(authenticateToken, profileSnapshot);
@@ -22,7 +34,7 @@ function sortConversations<T extends { lastMessage: ChatMessage | null }>(items:
 }
 
 // Get conversation summaries
-router.get('/conversations', (req: AuthenticatedRequest, res: Response) => {
+router.get('/conversations', async (req: AuthenticatedRequest, res: Response) => {
   const userId = req.user?.id;
   if (req.user?.role === 'admin') {
     administratorOperation(res, async () => {
@@ -41,6 +53,12 @@ router.get('/conversations', (req: AuthenticatedRequest, res: Response) => {
   // Find all profile IDs that this user has exchanged messages with OR has accepted interest connection with
   const partnerIds = new Set<string>();
 
+  // Fetch conversations from PostgreSQL
+  const pgConversationsMap = await getMemberConversationsMap(userProfile.id);
+  for (const partnerId of pgConversationsMap.keys()) {
+    partnerIds.add(partnerId);
+  }
+
   db.messages.forEach((m) => {
     if (m.senderId === userProfile.id) partnerIds.add(m.receiverId);
     if (m.receiverId === userProfile.id) partnerIds.add(m.senderId);
@@ -56,15 +74,22 @@ router.get('/conversations', (req: AuthenticatedRequest, res: Response) => {
 
   const conversations = Array.from(partnerIds).map((partnerId) => {
     const partner = requestProfiles(req).find((p) => p.id === partnerId && p.isVerified);
-    const thread = db.messages.filter(
-      (m) =>
-        (m.senderId === userProfile.id && m.receiverId === partnerId) ||
-        (m.senderId === partnerId && m.receiverId === userProfile.id)
-    );
+    const pgData = pgConversationsMap.get(partnerId);
 
-    thread.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-    const lastMessage = thread.length > 0 ? thread[thread.length - 1] : null;
-    const unreadCount = thread.filter((m) => m.receiverId === userProfile.id && !m.isRead).length;
+    let lastMessage = pgData ? pgData.lastMessage : null;
+    let unreadCount = pgData ? pgData.unreadCount : 0;
+
+    if (!lastMessage) {
+      const thread = db.messages.filter(
+        (m) =>
+          (m.senderId === userProfile.id && m.receiverId === partnerId) ||
+          (m.senderId === partnerId && m.receiverId === userProfile.id)
+      );
+
+      thread.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+      lastMessage = thread.length > 0 ? thread[thread.length - 1] : null;
+      unreadCount = thread.filter((m) => m.receiverId === userProfile.id && !m.isRead).length;
+    }
 
     return {
       partnerId,
@@ -85,7 +110,7 @@ router.get('/conversations', (req: AuthenticatedRequest, res: Response) => {
 });
 
 // Get messages for a specific conversation
-router.get('/:partnerProfileId', (req: AuthenticatedRequest, res: Response) => {
+router.get('/:partnerProfileId', async (req: AuthenticatedRequest, res: Response) => {
   const userId = req.user?.id;
   const { partnerProfileId } = req.params;
   const userProfile = requestProfiles(req).find((p) => p.userId === userId);
@@ -99,7 +124,6 @@ router.get('/:partnerProfileId', (req: AuthenticatedRequest, res: Response) => {
     return;
   }
 
-
   if (!userProfile) {
     res.status(404).json({ message: 'Profile not found' });
     return;
@@ -112,7 +136,16 @@ router.get('/:partnerProfileId', (req: AuthenticatedRequest, res: Response) => {
 
   const partner = requestProfiles(req).find(profile => profile.id === partnerProfileId)!;
   if (!profilesConnected(userProfile, partner, db.interests)) {
-    res.status(403).json({ message: 'Accept a connection request before messaging.' }); return;
+    res.status(403).json({ message: 'Accept a connection request before messaging.' });
+    return;
+  }
+
+  try {
+    const thread = await getMemberThread(userProfile.id, partnerProfileId);
+    res.json(thread);
+    return;
+  } catch (err) {
+    console.warn('Could not read PostgreSQL thread; using local mirror:', (err as Error)?.message);
   }
 
   const thread = db.messages.filter(
@@ -134,7 +167,7 @@ router.get('/:partnerProfileId', (req: AuthenticatedRequest, res: Response) => {
 });
 
 // Send message
-router.post('/:partnerProfileId', (req: AuthenticatedRequest, res: Response) => {
+router.post('/:partnerProfileId', async (req: AuthenticatedRequest, res: Response) => {
   const userId = req.user?.id;
   const { partnerProfileId } = req.params;
   const { content } = req.body || {};
@@ -172,22 +205,32 @@ router.post('/:partnerProfileId', (req: AuthenticatedRequest, res: Response) => 
   }
 
   if (!profilesConnected(userProfile, partnerProfile, db.interests)) {
-    res.status(403).json({ message: 'Accept a connection request before messaging.' }); return;
+    res.status(403).json({ message: 'Accept a connection request before messaging.' });
+    return;
   }
-  const newMsg: ChatMessage = {
-    id: randomUUID(),
-    senderId: userProfile.id,
-    receiverId: partnerProfileId,
-    content: content.trim(),
-    timestamp: new Date().toISOString(),
-    isRead: false,
-  };
 
-  db.messages.push(newMsg);
-  db.save();
+  let newMsg: ChatMessage;
+  try {
+    newMsg = await sendMemberMessage(userProfile.id, partnerProfileId, content);
+  } catch (err) {
+    console.warn('Could not persist message to PostgreSQL; using local mirror:', (err as Error)?.message);
+    newMsg = {
+      id: randomUUID(),
+      senderId: userProfile.id,
+      receiverId: partnerProfileId,
+      content: content.trim(),
+      timestamp: new Date().toISOString(),
+      isRead: false,
+    };
+  }
+
+  // Mirror to in-memory store
+  if (!db.messages.some(m => m.id === newMsg.id)) {
+    db.messages.push(newMsg);
+    db.save();
+  }
 
   res.status(201).json(newMsg);
 });
 
 export default router;
-

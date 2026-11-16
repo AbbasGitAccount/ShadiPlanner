@@ -4,6 +4,7 @@ import { db } from './db.js';
 import { pool } from './postgres.js';
 import { initializeProfileDatabase, saveProfile } from './profileDatabase.js';
 import { initializeAdminMessagingDatabase } from './adminMessagingDatabase.js';
+import { initializeMemberMessagingDatabase } from './memberMessagingDatabase.js';
 import { initializeSubscriptions } from './subscriptionDatabase.js';
 
 export const initializeAuthDatabase = async (): Promise<void> => {
@@ -53,6 +54,7 @@ export const initializeAuthDatabase = async (): Promise<void> => {
   const profiles = await initializeProfileDatabase(db.profiles);
   db.profiles.splice(0, db.profiles.length, ...profiles);
   await initializeAdminMessagingDatabase();
+  await initializeMemberMessagingDatabase(db.messages);
   await initializeSubscriptions(db.interests);
   await initializeAdminDatabase();
 };
