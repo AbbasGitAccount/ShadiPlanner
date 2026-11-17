@@ -1,10 +1,11 @@
 import { InterestRequest, MatrimonialProfile } from './types.js';
 
-export function profilesConnected(first: MatrimonialProfile, second: MatrimonialProfile, interests: InterestRequest[]): boolean {
-  return first.isVerified && second.isVerified && interests.some(interest => interest.status === 'accepted' && (
-    interest.senderProfileId === first.id && interest.receiverProfileId === second.id ||
-    interest.receiverProfileId === first.id && interest.senderProfileId === second.id
-  ));
+export function profilesConnected(first: MatrimonialProfile | undefined | null, second: MatrimonialProfile | undefined | null, interests: InterestRequest[]): boolean {
+  if (!first || !second) return false;
+  return Boolean(first.isVerified && second.isVerified && Array.isArray(interests) && interests.some(interest => interest.status === 'accepted' && (
+    (interest.senderProfileId === first.id && interest.receiverProfileId === second.id) ||
+    (interest.receiverProfileId === first.id && interest.senderProfileId === second.id)
+  )));
 }
 
 // Apply the same contact policy to every endpoint, including nested list results.

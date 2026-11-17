@@ -58,6 +58,23 @@ export const MessagesPage: React.FC = () => {
     if (requested) setSelectedPartnerId(requested);
   }, [searchParams]);
 
+  const loadThread = async () => {
+    if (!selectedPartnerId) return;
+    setThreadLoading(true);
+    const revision = sendRevision.current;
+    try {
+      const data = await api.getMessages(selectedPartnerId);
+      if (revision === sendRevision.current) {
+        setMessages(data);
+        setThreadError('');
+      }
+    } catch (error) {
+      setThreadError(error instanceof Error ? error.message : 'Could not load messages.');
+    } finally {
+      setThreadLoading(false);
+    }
+  };
+
   useEffect(() => {
     let active = true;
     setMessages([]); setThreadError(''); setSendError(''); setNewMessage('');
@@ -261,7 +278,18 @@ export const MessagesPage: React.FC = () => {
                 </div>
 
                 {threadLoading && <p role="status" className="text-xs text-slate-500 text-center">Loading messages...</p>}
-                {threadError && <p role="alert" className="text-xs text-rose-700 text-center">{threadError}</p>}
+                {threadError && (
+                  <div role="alert" className="text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded-xl p-2.5 max-w-md mx-auto text-center flex items-center justify-center gap-2">
+                    <span>{threadError}</span>
+                    <button
+                      type="button"
+                      onClick={() => void loadThread()}
+                      className="underline font-semibold hover:text-rose-900 ml-1 cursor-pointer"
+                    >
+                      Try again
+                    </button>
+                  </div>
+                )}
                 {messages.map((msg) => {
                   const isMine = msg.senderId === currentUserProfile?.id || administrator && msg.senderId === `admin:${user?.id}`;
 
@@ -315,7 +343,7 @@ export const MessagesPage: React.FC = () => {
                   <input
                     type="text"
                     maxLength={4000}
-                    disabled={sending || threadLoading || !!threadError}
+                    disabled={sending || threadLoading}
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
                     placeholder={activePartner.isAdministrator ? 'Reply to the administrator...' : `Message ${activePartner.fullName.split(' ')[0]}...`}
@@ -323,9 +351,9 @@ export const MessagesPage: React.FC = () => {
                   />
                   <button
                     type="submit"
-                    disabled={sending || threadLoading || !!threadError || !newMessage.trim()}
+                    disabled={sending || threadLoading || !newMessage.trim()}
                     aria-label="Send message"
-                    className="p-2.5 bg-gradient-to-r from-rose-600 to-amber-600 text-white rounded-2xl shadow-md shadow-rose-200 hover:shadow-lg transition disabled:opacity-50"
+                    className="p-2.5 bg-gradient-to-r from-rose-600 to-amber-600 text-white rounded-2xl shadow-md shadow-rose-200 hover:shadow-lg transition disabled:opacity-50 cursor-pointer"
                   >
                     <Send className="w-4 h-4" />
                   </button>

@@ -3,6 +3,8 @@ import { randomUUID } from 'node:crypto';
 import { profileSnapshot, requestProfiles } from '../middleware/profileSnapshot.js';
 import { Router, Response } from 'express';
 import { db } from '../data/db.js';
+import { pool } from '../data/postgres.js';
+import { loadProfiles } from '../data/profileDatabase.js';
 import { AuthenticatedRequest, authenticateToken } from '../middleware/auth.js';
 import { ChatMessage } from '../models/types.js';
 import {
@@ -129,13 +131,29 @@ router.get('/:partnerProfileId', async (req: AuthenticatedRequest, res: Response
     return;
   }
 
-  if (!userProfile.isVerified || !requestProfiles(req).some((p) => p.id === partnerProfileId && p.isVerified)) {
+  let partner = requestProfiles(req).find((p) => p.id === partnerProfileId);
+  if (!partner) {
+    const all = await loadProfiles();
+    partner = all.find((p) => p.id === partnerProfileId && p.isVerified);
+  }
+
+  if (!partner) {
+    res.status(404).json({ message: 'Profile not found' });
+    return;
+  }
+
+  if (!userProfile.isVerified || !partner.isVerified) {
     res.status(403).json({ message: 'Both profiles must be approved before messaging' });
     return;
   }
 
-  const partner = requestProfiles(req).find(profile => profile.id === partnerProfileId)!;
-  if (!profilesConnected(userProfile, partner, db.interests)) {
+  const isConnected = profilesConnected(userProfile, partner, db.interests);
+  const hasHistory = await pool.query(
+    'SELECT 1 FROM member_messages WHERE (sender_profile_id = $1 AND receiver_profile_id = $2) OR (sender_profile_id = $2 AND receiver_profile_id = $1) LIMIT 1',
+    [userProfile.id, partnerProfileId]
+  ).then(r => (r.rowCount || 0) > 0).catch(() => false) || db.messages.some(m => (m.senderId === userProfile.id && m.receiverId === partnerProfileId) || (m.senderId === partnerProfileId && m.receiverId === userProfile.id));
+
+  if (!isConnected && !hasHistory) {
     res.status(403).json({ message: 'Accept a connection request before messaging.' });
     return;
   }
@@ -188,7 +206,11 @@ router.post('/:partnerProfileId', async (req: AuthenticatedRequest, res: Respons
     return;
   }
 
-  const partnerProfile = requestProfiles(req).find((p) => p.id === partnerProfileId && p.isVerified);
+  let partnerProfile = requestProfiles(req).find((p) => p.id === partnerProfileId && p.isVerified);
+  if (!partnerProfile) {
+    const all = await loadProfiles();
+    partnerProfile = all.find((p) => p.id === partnerProfileId && p.isVerified);
+  }
 
   if (!userProfile) {
     res.status(404).json({ message: 'Sender profile not found' });
@@ -204,7 +226,13 @@ router.post('/:partnerProfileId', async (req: AuthenticatedRequest, res: Respons
     return;
   }
 
-  if (!profilesConnected(userProfile, partnerProfile, db.interests)) {
+  const isConnected = profilesConnected(userProfile, partnerProfile, db.interests);
+  const hasHistory = await pool.query(
+    'SELECT 1 FROM member_messages WHERE (sender_profile_id = $1 AND receiver_profile_id = $2) OR (sender_profile_id = $2 AND receiver_profile_id = $1) LIMIT 1',
+    [userProfile.id, partnerProfileId]
+  ).then(r => (r.rowCount || 0) > 0).catch(() => false) || db.messages.some(m => (m.senderId === userProfile.id && m.receiverId === partnerProfileId) || (m.senderId === partnerProfileId && m.receiverId === userProfile.id));
+
+  if (!isConnected && !hasHistory) {
     res.status(403).json({ message: 'Accept a connection request before messaging.' });
     return;
   }

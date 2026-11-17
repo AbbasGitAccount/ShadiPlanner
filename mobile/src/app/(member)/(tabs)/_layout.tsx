@@ -1,5 +1,5 @@
 import React from 'react';
-import { View } from 'react-native';
+import { View, Platform } from 'react-native';
 import { Tabs } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -21,7 +21,8 @@ const inactiveIcons: Record<string, React.ComponentProps<typeof Ionicons>['name'
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
-  const bottomInset = Math.max(insets.bottom, 10);
+  // Safe clearance above Android 3-button navigation bar (||| O <) and gesture bar
+  const bottomPadding = Math.max(insets.bottom, Platform.OS === 'android' ? 14 : 10);
 
   return (
     <Tabs
@@ -29,49 +30,44 @@ export default function TabLayout() {
         headerShown: false,
         tabBarHideOnKeyboard: true,
         tabBarActiveTintColor: colors.wine,
-        tabBarInactiveTintColor: '#7A6270',
+        tabBarInactiveTintColor: '#6E5A68',
         tabBarStyle: {
-          position: 'absolute',
-          bottom: bottomInset,
-          left: 14,
-          right: 14,
-          height: 64,
           backgroundColor: '#FFFFFF',
-          borderRadius: 24,
-          borderWidth: 1,
-          borderColor: '#EFE3E8',
-          shadowColor: '#381626',
-          shadowOffset: { width: 0, height: 6 },
-          shadowOpacity: 0.12,
-          shadowRadius: 16,
-          elevation: 10,
+          borderTopWidth: 1,
+          borderTopColor: '#EFE3E8',
+          height: 60 + bottomPadding,
+          paddingBottom: bottomPadding,
           paddingTop: 6,
-          paddingBottom: 6,
+          elevation: 16,
+          shadowColor: '#381626',
+          shadowOffset: { width: 0, height: -3 },
+          shadowOpacity: 0.08,
+          shadowRadius: 10,
         },
         tabBarItemStyle: {
           paddingVertical: 2,
         },
         tabBarLabelStyle: {
-          fontSize: 10,
+          fontSize: 11,
           fontWeight: '700',
           marginTop: 2,
-          letterSpacing: 0.2,
+          letterSpacing: 0.1,
         },
         tabBarIcon: ({ focused }) => (
           <View
             style={{
               alignItems: 'center',
               justifyContent: 'center',
-              backgroundColor: focused ? '#F8E8EE' : 'transparent',
-              paddingHorizontal: 12,
-              paddingVertical: 3,
-              borderRadius: 14,
-              minWidth: 44,
+              backgroundColor: focused ? '#FCEBED' : 'transparent',
+              paddingHorizontal: 16,
+              paddingVertical: 4,
+              borderRadius: 16,
+              minWidth: 48,
             }}
           >
             <Ionicons
               name={focused ? activeIcons[route.name] : inactiveIcons[route.name]}
-              color={focused ? colors.wine : '#7A6270'}
+              color={focused ? colors.wine : '#6E5A68'}
               size={22}
             />
           </View>

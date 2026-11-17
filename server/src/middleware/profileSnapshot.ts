@@ -24,6 +24,25 @@ export const profileSnapshot = async (req: Request, res: Response, next: NextFun
         if (interest.senderProfileId === own?.id) allowed.add(interest.receiverProfileId);
         if (interest.receiverProfileId === own?.id) allowed.add(interest.senderProfileId);
       }
+      if (own) {
+        for (const msg of db.messages) {
+          if (msg.senderId === own.id) allowed.add(msg.receiverId);
+          if (msg.receiverId === own.id) allowed.add(msg.senderId);
+        }
+        try {
+          const msgPartners = await pool.query<{ partner_id: string }>(
+            `SELECT DISTINCT CASE WHEN sender_profile_id = $1 THEN receiver_profile_id ELSE sender_profile_id END AS partner_id
+             FROM member_messages
+             WHERE sender_profile_id = $1 OR receiver_profile_id = $1`,
+            [own.id]
+          );
+          for (const row of msgPartners.rows) {
+            allowed.add(row.partner_id);
+          }
+        } catch {
+          // ignore query error
+        }
+      }
       snapshots.set(req, profiles.filter(profile => profile.userId === user?.id || allowed.has(profile.id)));
     } else snapshots.set(req, profiles);
     db.interests.splice(0, db.interests.length, ...interests);
