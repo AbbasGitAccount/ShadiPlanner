@@ -59,6 +59,7 @@ export const optionalAuth = async (req: AuthenticatedRequest, res: Response, nex
     const user = await findUserById(decoded.id);
     if (user && !user.suspended && (decoded.authVersion ?? 0) === (user.authVersion ?? 0)) {
       req.user = { id: user.id, email: user.email, role: user.role, authVersion: user.authVersion, profileId: typeof decoded.profileId === 'string' ? decoded.profileId : undefined };
+      try { req.user.membership = await membership(user.id); } catch {}
     }
   } catch { res.status(503).json({ message: 'Sign-in is temporarily unavailable. Please try again shortly.' }); return; }
   next();

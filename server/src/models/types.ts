@@ -103,6 +103,8 @@ export interface MatrimonialProfile {
   // Contact (unlocked upon match/request approval)
   phone: string;
   email: string;
+  isContactUnlocked?: boolean;
+  isPhotoUnlocked?: boolean;
 
   createdAt: string;
   updatedAt: string;

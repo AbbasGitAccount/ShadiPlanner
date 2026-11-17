@@ -91,6 +91,7 @@ export interface MatrimonialProfile {
   phone: string;
   email: string;
   isContactUnlocked?: boolean;
+  isPhotoUnlocked?: boolean;
 
   // Matching metadata
   matchScore?: number;

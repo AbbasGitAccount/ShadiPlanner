@@ -12,6 +12,8 @@ import {
   MessageCircle,
   Eye,
   Sparkles,
+  Phone,
+  Crown,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { MatrimonialProfile } from '../types';
@@ -79,17 +81,28 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({
   const isConnected = interestStatus === 'sent_accepted' || interestStatus === 'received_accepted';
   const isPendingSent = interestStatus === 'sent_pending';
   const isPendingReceived = interestStatus === 'received_pending';
+  const isPhotoLocked = profile.isPhotoUnlocked === false;
 
   return (
     <>
       <div className="bg-white rounded-2xl border border-rose-100 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col overflow-hidden group">
         {/* Top Image & Badges */}
-        <div className="relative aspect-[4/3] w-full overflow-hidden bg-slate-100">
+        <div className="relative aspect-[4/3] w-full overflow-hidden bg-gradient-to-tr from-rose-100 via-amber-50 to-rose-50">
           <img
             src={profile.profilePhoto}
             alt={profile.fullName}
-            className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500"
+            className={`w-full h-full object-cover object-top transition-transform duration-500 ${isPhotoLocked ? 'filter blur-md scale-110 opacity-70' : 'group-hover:scale-105'}`}
           />
+
+          {isPhotoLocked && (
+            <div className="absolute inset-0 bg-slate-900/35 backdrop-blur-[2px] flex flex-col items-center justify-center p-3 text-center z-10">
+              <div className="p-2.5 bg-white/20 backdrop-blur-md rounded-2xl mb-1 text-white border border-white/30 shadow-lg">
+                <Lock className="w-5 h-5 text-amber-300" />
+              </div>
+              <span className="text-white text-xs font-bold drop-shadow">Photo Protected</span>
+              <span className="text-amber-200 text-[10px] font-semibold mt-0.5">Subscribe to view photo</span>
+            </div>
+          )}
 
           {/* Gradient Overlay at bottom */}
           <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-transparent to-transparent opacity-80" />
@@ -183,6 +196,22 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({
             <p className="text-[11px] text-slate-500 line-clamp-2 pt-2 border-t border-slate-100 italic">
               "{profile.aboutMe}"
             </p>
+
+            {/* Phone & Contact Teaser */}
+            <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px]">
+              <span className="flex items-center gap-1 text-slate-500 font-medium">
+                <Phone className="w-3 h-3 text-slate-400" />
+                <span>Phone:</span>
+              </span>
+              {profile.isContactUnlocked ? (
+                <span className="font-bold text-slate-900">{profile.phone}</span>
+              ) : (
+                <Link to="/subscriptions" className="font-semibold text-rose-600 hover:text-rose-800 flex items-center gap-1">
+                  <Lock className="w-2.5 h-2.5" />
+                  <span>Subscribe to view</span>
+                </Link>
+              )}
+            </div>
           </div>
 
           {/* Action Footer */}

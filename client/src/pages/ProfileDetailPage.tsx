@@ -23,6 +23,7 @@ import {
   Home,
   Coffee,
   ArrowRight,
+  Crown,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { api } from '../services/api';
@@ -153,30 +154,54 @@ export const ProfileDetailPage: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-12 gap-6 p-6 sm:p-8">
           {/* Photo Gallery Column */}
           <div className="md:col-span-5 space-y-3">
-            <div className="aspect-[3/4] w-full rounded-2xl overflow-hidden bg-slate-100 relative shadow-md">
-              <img
-                src={selectedPhoto || profile.profilePhoto}
-                alt={profile.fullName}
-                className="w-full h-full object-cover object-top"
-              />
-              <div className="absolute top-3 left-3 flex flex-col gap-1.5">
-                {profile.isVerified && (
-                  <span className="inline-flex items-center gap-1 bg-emerald-600 text-white text-[11px] font-bold px-2.5 py-1 rounded-full shadow">
-                    <ShieldCheck className="w-3.5 h-3.5" />
-                    <span>ID Verified</span>
-                  </span>
-                )}
-                {profile.premiumMember && (
-                  <span className="inline-flex items-center gap-1 bg-amber-500 text-slate-900 text-[11px] font-bold px-2.5 py-1 rounded-full shadow">
-                    <Sparkles className="w-3.5 h-3.5" />
-                    <span>VIP Member</span>
-                  </span>
-                )}
+            {profile.isPhotoUnlocked === false ? (
+              <div className="aspect-[3/4] w-full rounded-2xl overflow-hidden bg-gradient-to-tr from-rose-100 via-amber-50 to-rose-50 relative shadow-md flex flex-col items-center justify-center p-6 text-center border border-rose-200">
+                <div className="w-20 h-20 rounded-full bg-white/80 backdrop-blur-sm border-2 border-rose-300 flex items-center justify-center mb-3 shadow-md">
+                  <Lock className="w-9 h-9 text-rose-500" />
+                </div>
+                <span className="px-3 py-1 rounded-full bg-rose-50 border border-rose-200 text-rose-700 text-[11px] font-bold uppercase tracking-wide">
+                  Protected Member Photos
+                </span>
+                <h3 className="font-playfair text-lg font-bold text-slate-900 mt-2">
+                  Photos are Visible to Subscribed Members
+                </h3>
+                <p className="text-xs text-slate-600 max-w-xs mt-1 mb-4 leading-relaxed">
+                  To protect member privacy, full profile photos and gallery albums are exclusive to Gold and Platinum members.
+                </p>
+                <Link
+                  to="/subscriptions"
+                  className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-rose-600 to-amber-600 text-white text-xs font-bold shadow-md hover:shadow-lg transition flex items-center gap-1.5"
+                >
+                  <Crown className="w-4 h-4" />
+                  <span>Subscribe to View Photos</span>
+                </Link>
               </div>
-            </div>
+            ) : (
+              <div className="aspect-[3/4] w-full rounded-2xl overflow-hidden bg-slate-100 relative shadow-md">
+                <img
+                  src={selectedPhoto || profile.profilePhoto}
+                  alt={profile.fullName}
+                  className="w-full h-full object-cover object-top"
+                />
+                <div className="absolute top-3 left-3 flex flex-col gap-1.5">
+                  {profile.isVerified && (
+                    <span className="inline-flex items-center gap-1 bg-emerald-600 text-white text-[11px] font-bold px-2.5 py-1 rounded-full shadow">
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      <span>ID Verified</span>
+                    </span>
+                  )}
+                  {profile.premiumMember && (
+                    <span className="inline-flex items-center gap-1 bg-amber-500 text-slate-900 text-[11px] font-bold px-2.5 py-1 rounded-full shadow">
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>VIP Member</span>
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Gallery Thumbnail Switcher */}
-            {profile.galleryPhotos && profile.galleryPhotos.length > 1 && (
+            {profile.isPhotoUnlocked !== false && profile.galleryPhotos && profile.galleryPhotos.length > 1 && (
               <div className="flex items-center space-x-2 overflow-x-auto pb-1">
                 {profile.galleryPhotos.map((photo, i) => (
                   <button
@@ -261,34 +286,46 @@ export const ProfileDetailPage: React.FC = () => {
             </div>
 
             {/* Contact Security Box */}
-            <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div className="space-y-1">
                 <div className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
                   {profile.isContactUnlocked ? (
                     <>
                       <Unlock className="w-4 h-4 text-emerald-600" />
-                      <span className="text-emerald-700">Contact Details Unlocked</span>
+                      <span className="text-emerald-700">Verified Contact Details</span>
                     </>
                   ) : (
                     <>
                       <Lock className="w-4 h-4 text-amber-700" />
-                      <span>Direct Contact Details Protected</span>
+                      <span className="text-amber-800">Phone Number & Contact Protected</span>
                     </>
                   )}
                 </div>
-                <div className="text-xs text-slate-600 flex flex-wrap gap-4">
-                  <span className="flex items-center gap-1">
+                <div className="text-xs text-slate-600 flex flex-wrap gap-4 pt-1">
+                  <span className="flex items-center gap-1.5">
                     <Phone className="w-3.5 h-3.5 text-slate-400" />
-                    <strong>{profile.phone}</strong>
+                    <strong className={profile.isContactUnlocked ? 'text-slate-900 font-bold text-sm' : 'text-slate-500 font-medium'}>
+                      {profile.isContactUnlocked ? profile.phone : '+91 ••••• •••••'}
+                    </strong>
                   </span>
-                  <span className="flex items-center gap-1">
+                  <span className="flex items-center gap-1.5">
                     <Mail className="w-3.5 h-3.5 text-slate-400" />
-                    <strong>{profile.email}</strong>
+                    <strong className={profile.isContactUnlocked ? 'text-slate-900' : 'text-slate-500 font-medium'}>
+                      {profile.isContactUnlocked ? profile.email : '••••••@•••••.com'}
+                    </strong>
                   </span>
                 </div>
               </div>
 
-              {!profile.isContactUnlocked && <Link to="/subscriptions" className="px-4 py-2 rounded-xl bg-amber-700 text-white text-xs font-semibold hover:bg-amber-800">Gold + mutual consent required</Link>}
+              {!profile.isContactUnlocked && (
+                <Link
+                  to="/subscriptions"
+                  className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-rose-600 to-amber-600 text-white text-xs font-bold shadow-md hover:shadow-lg transition flex items-center gap-1.5 shrink-0"
+                >
+                  <Crown className="w-3.5 h-3.5" />
+                  <span>Subscribe to View Phone No</span>
+                </Link>
+              )}
             </div>
 
             {/* Action Buttons Bar */}

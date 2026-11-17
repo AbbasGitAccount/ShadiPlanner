@@ -8,15 +8,29 @@ export function profilesConnected(first: MatrimonialProfile | undefined | null, 
   )));
 }
 
-// Apply the same contact policy to every endpoint, including nested list results.
-export function presentProfile(profile: MatrimonialProfile, viewer: { id: string; role: string; membership?: { plan: { contactDetails: boolean } } } | undefined, profiles: MatrimonialProfile[], interests: InterestRequest[]) {
-  const ownProfile = viewer && profiles.find(item => item.userId === viewer.id);
-  const unlocked = viewer?.id === profile.userId || !!(viewer?.membership?.plan.contactDetails && ownProfile && profilesConnected(ownProfile, profile, interests));
+// Apply the same photo and contact privacy policy to every endpoint, including nested list results.
+export function presentProfile(
+  profile: MatrimonialProfile,
+  viewer: { id: string; role: string; membership?: { plan: { contactDetails?: boolean; id?: string }; status?: string } } | undefined,
+  profiles: MatrimonialProfile[],
+  interests: InterestRequest[]
+) {
+  const isOwnProfile = viewer?.id === profile.userId;
+  const isSubscribed = viewer?.role === 'admin' || Boolean(
+    viewer?.membership?.status === 'active' &&
+    viewer?.membership?.plan?.id !== 'free'
+  );
+  const unlocked = isOwnProfile || isSubscribed;
+  const lockedAvatar = '/avatar-placeholder.svg';
+
   return {
     ...profile,
-    phone: unlocked ? profile.phone : 'Gold or Platinum + mutual consent required',
-    email: unlocked ? profile.email : 'Direct contact protected',
+    profilePhoto: unlocked ? profile.profilePhoto : lockedAvatar,
+    phone: unlocked ? profile.phone : 'Subscribe to view phone number',
+    email: unlocked ? profile.email : 'Subscribe to view email',
     isContactUnlocked: unlocked,
+    isPhotoUnlocked: unlocked,
+    galleryPhotos: unlocked ? (profile.galleryPhotos || []) : [],
     ...(!unlocked ? { verificationReviewedBy: undefined, verificationReviewedAt: undefined } : {}),
   };
 }

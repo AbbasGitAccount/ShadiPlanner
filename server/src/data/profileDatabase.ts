@@ -22,7 +22,7 @@ export const profileFields = {
   isVerified: 'BOOLEAN NOT NULL', verificationReviewedBy: 'TEXT', verificationReviewedAt: 'TEXT',
   phoneVerified: 'BOOLEAN NOT NULL', govtIdVerified: 'BOOLEAN NOT NULL', premiumMember: 'BOOLEAN NOT NULL',
   partnerPreferences: 'JSONB NOT NULL', phone: 'TEXT NOT NULL', email: 'TEXT NOT NULL', createdAt: 'TEXT NOT NULL', updatedAt: 'TEXT NOT NULL',
-} satisfies Record<Exclude<keyof MatrimonialProfile, 'enhancedVisibility'>, string>;
+} satisfies Record<Exclude<keyof MatrimonialProfile, 'enhancedVisibility' | 'isContactUnlocked' | 'isPhotoUnlocked'>, string>;
 
 const fields = Object.keys(profileFields) as (keyof typeof profileFields)[];
 const column = (key: string): string => key.replace(/[A-Z]/g, letter => `_${letter.toLowerCase()}`);
