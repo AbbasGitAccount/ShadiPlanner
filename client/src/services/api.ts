@@ -72,6 +72,7 @@ interface AuthResponse {
   token: string;
   user: User;
   profile: MatrimonialProfile | null;
+  membership?: Membership | null;
 }
 
 export class ApiError extends Error {

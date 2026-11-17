@@ -7,6 +7,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { db } from '../data/db.js';
 import { createUserWithProfile, findUserByEmail, findUserById } from '../data/authDatabase.js';
+import { membership } from '../data/subscriptionDatabase.js';
 import { AuthenticatedRequest, JWT_SECRET, authenticateToken } from '../middleware/auth.js';
 import { User, MatrimonialProfile } from '../models/types.js';
 import { buildRegistrationProfile, RegistrationValidationError } from '../models/registration.js';
@@ -37,6 +38,7 @@ router.post('/login', loginLimit, async (req, res: Response) => {
 
     await pool.query("INSERT INTO account_activity(user_id,action) VALUES($1,'login')",[user.id]);
     const profile = (await loadProfiles()).find((p) => p.userId === user.id);
+    const userMembership = user.role !== 'admin' ? await membership(user.id).catch(() => null) : null;
 
     const token = jwt.sign(
       {
@@ -58,6 +60,7 @@ router.post('/login', loginLimit, async (req, res: Response) => {
         role: user.role,
       },
       profile: profile || null,
+      membership: userMembership || null,
     });
   } catch (error) {
     console.error('Login error:', error);
@@ -133,6 +136,8 @@ router.post('/register', async (req, res: Response) => {
       { expiresIn: '7d' }
     );
 
+    const userMembership = await membership(newUser.id).catch(() => null);
+
     res.status(201).json({
       token,
       user: {
@@ -141,6 +146,7 @@ router.post('/register', async (req, res: Response) => {
         role: newUser.role,
       },
       profile: newProfile,
+      membership: userMembership || null,
     });
   } catch (error) {
     if (error instanceof RegistrationValidationError) {
@@ -163,6 +169,7 @@ router.get('/me', authenticateToken, async (req: AuthenticatedRequest, res: Resp
     }
 
     const profile = (await loadProfiles()).find((p) => p.userId === userId);
+    const userMembership = user.role !== 'admin' ? await membership(user.id).catch(() => null) : null;
     res.json({
       user: {
         id: user.id,
@@ -170,6 +177,7 @@ router.get('/me', authenticateToken, async (req: AuthenticatedRequest, res: Resp
         role: user.role,
       },
       profile: profile || null,
+      membership: userMembership || null,
     });
   } catch (error) {
     console.error('Current user lookup error:', error);

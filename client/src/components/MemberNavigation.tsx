@@ -4,7 +4,7 @@ import { Search, Heart, Inbox, Send, Eye, MessageCircle, CalendarHeart, Settings
 import { useAuth } from '../context/AuthContext';
 
 export const MemberNavigation: React.FC<{ onNavigate?: () => void }> = ({ onNavigate }) => {
-  const { user, profile, logout } = useAuth();
+  const { user, profile, isPaidMember, logout } = useAuth();
   const { pathname, search } = useLocation();
   const tab = new URLSearchParams(search).get('tab') || 'received';
   const administrator = user?.role === 'admin';
@@ -17,7 +17,7 @@ export const MemberNavigation: React.FC<{ onNavigate?: () => void }> = ({ onNavi
         { to: '/interests?tab=received', label: 'Received interests', Icon: Inbox },
         { to: '/interests?tab=sent', label: 'Sent interests', Icon: Send },
       ] : []),
-      { to: '/messages', label: 'Messages', Icon: MessageCircle },
+      ...(isPaidMember ? [{ to: '/messages', label: 'Messages', Icon: MessageCircle }] : []),
       ...(!administrator ? [{ to: '/interests?tab=views', label: 'Profile views', Icon: Eye }] : []),
     ] },
     { label: 'Plan & manage', items: [

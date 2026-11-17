@@ -4,6 +4,9 @@ import { Tabs } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../../../components/ui';
+import { useAuth } from '../../../context/Auth';
+import { useResource } from '../../../lib/useResource';
+import type { Membership } from '../../../types';
 
 const activeIcons: Record<string, React.ComponentProps<typeof Ionicons>['name']> = {
   index: 'compass',
@@ -21,6 +24,9 @@ const inactiveIcons: Record<string, React.ComponentProps<typeof Ionicons>['name'
 
 export default function TabLayout() {
   const insets = useSafeAreaInsets();
+  const { user } = useAuth();
+  const sub = useResource<Membership>(user?.role === 'admin' ? null : '/subscriptions/me');
+  const canMessage = user?.role === 'admin' || Boolean(sub.data && sub.data.status === 'active' && sub.data.plan.id !== 'free' && sub.data.plan.directMessaging !== false);
   // Safe clearance above Android 3-button navigation bar (||| O <) and gesture bar
   const bottomPadding = Math.max(insets.bottom, Platform.OS === 'android' ? 14 : 10);
 
@@ -76,7 +82,7 @@ export default function TabLayout() {
     >
       <Tabs.Screen name="index" options={{ title: 'Discover' }} />
       <Tabs.Screen name="connections" options={{ title: 'Connections' }} />
-      <Tabs.Screen name="inbox" options={{ title: 'Messages' }} />
+      <Tabs.Screen name="inbox" options={{ href: canMessage ? undefined : null, title: 'Messages' }} />
       <Tabs.Screen name="account" options={{ title: 'My account' }} />
     </Tabs>
   );

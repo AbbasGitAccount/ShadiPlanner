@@ -20,7 +20,7 @@ import { Membership } from '../types/subscriptions';
 import { useAuth } from '../context/AuthContext';
 
 export const MessagesPage: React.FC = () => {
-  const { user, profile: currentUserProfile } = useAuth();
+  const { user, profile: currentUserProfile, isPaidMember: authIsPaidMember, isLoading: authLoading } = useAuth();
   const [searchParams] = useSearchParams();
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [selectedPartnerId, setSelectedPartnerId] = useState<string | null>(searchParams.get('profile'));
@@ -157,6 +157,44 @@ export const MessagesPage: React.FC = () => {
     'What do you enjoy doing during relaxed weekends?',
     'Would your family and you be open for a phone call?',
   ];
+
+  if (!authLoading && !administrator && !authIsPaidMember) {
+    return (
+      <div className="max-w-2xl mx-auto px-4 py-16 text-center">
+        <div className="bg-white rounded-3xl border border-rose-100 shadow-xl p-8 sm:p-12 space-y-6">
+          <div className="w-20 h-20 mx-auto rounded-3xl bg-gradient-to-tr from-amber-100 to-rose-100 flex items-center justify-center text-amber-600 shadow-inner">
+            <Crown className="w-10 h-10" />
+          </div>
+          <div>
+            <span className="text-xs font-bold uppercase tracking-wider text-rose-600 bg-rose-50 px-3 py-1 rounded-full">
+              Paid Plan Required
+            </span>
+            <h1 className="font-playfair text-2xl sm:text-3xl font-bold text-slate-900 mt-3">
+              Messaging Requires a Paid Membership
+            </h1>
+            <p className="text-sm text-slate-600 max-w-md mx-auto mt-2 leading-relaxed">
+              Direct chat and personal communications are available exclusively to our Gold and Platinum members. Upgrade your plan to start messaging with verified matches.
+            </p>
+          </div>
+          <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+            <Link
+              to="/subscriptions"
+              className="w-full sm:w-auto px-6 py-3 rounded-2xl bg-gradient-to-r from-rose-600 to-amber-600 text-white text-sm font-bold shadow-lg shadow-rose-200 hover:shadow-xl transition flex items-center justify-center gap-2"
+            >
+              <Crown className="w-4 h-4" />
+              <span>Explore Membership Plans</span>
+            </Link>
+            <Link
+              to="/matches"
+              className="w-full sm:w-auto px-6 py-3 rounded-2xl border border-slate-200 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition"
+            >
+              Browse Matches
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
