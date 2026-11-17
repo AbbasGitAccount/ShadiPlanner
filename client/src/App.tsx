@@ -7,6 +7,7 @@ import { Footer } from './components/Footer';
 import { AboutPage } from './pages/AboutPage';
 import { ContactPage } from './pages/ContactPage';
 import { SubscriptionsPage } from './pages/SubscriptionsPage';
+import { CheckoutPage } from './pages/CheckoutPage';
 import { HomePage } from './pages/HomePage';
 import { BrowseMatchesPage } from './pages/BrowseMatchesPage';
 import { ProfileDetailPage } from './pages/ProfileDetailPage';
@@ -50,6 +51,7 @@ export const App: React.FC = () => {
               <Route path="/about" element={<AboutPage />} />
               <Route path="/contact" element={<ContactPage />} />
               <Route path="/subscriptions" element={<SubscriptionsPage />} />
+              <Route path="/checkout" element={<RequireAuth><CheckoutPage /></RequireAuth>} />
               <Route path="/matches" element={<RequireAuth><BrowseMatchesPage /></RequireAuth>} />
               <Route path="/profile/:id" element={<RequireAuth><ProfileDetailPage /></RequireAuth>} />
               <Route path="/interests" element={<RequireAuth><InterestsPage /></RequireAuth>} />

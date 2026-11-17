@@ -42,7 +42,10 @@ export const SubscriptionsPage: React.FC = () => {
     if (!user) { navigate(plan.id === 'free' ? '/register' : '/login', { state: { from: '/subscriptions' } }); return; }
     if (pending || !current || rank[plan.id] <= rank[current.plan.id]) return;
     setPending(plan.id); setError('');
-    try { const checkout = await api.createSubscriptionCheckout(plan.id); window.location.assign(checkout.checkoutUrl); }
+    try {
+      const checkout = await api.createSubscriptionCheckout(plan.id);
+      navigate(`/checkout?orderId=${encodeURIComponent(checkout.orderId)}`);
+    }
     catch (err) { setError(err instanceof Error ? err.message : 'Checkout is unavailable. Your plan has not changed.'); }
     finally { setPending(''); }
   };
