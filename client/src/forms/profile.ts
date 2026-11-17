@@ -1,9 +1,17 @@
-import { sections, validateRegistration, FieldErrors } from './registration';
+import { fullBiodataSections, validateFullProfile, FieldErrors } from './registration';
 import { MatrimonialProfile, PartnerPreferences } from '../types';
 
-const accountOnly = new Set(['email', 'password', 'phone']);
-export const profileSections = sections.map(section => ({ ...section, title: section.title === 'Account information' ? 'Profile identity' : section.title, fields: section.fields.filter(field => !accountOnly.has(field.name)) }));
-export const preferenceLists = { preferredMaritalStatus: 'maritalStatus', preferredReligions: 'religions', preferredCommunities: 'communities', preferredMotherTongues: 'motherTongues', preferredEducation: 'educationLevels', preferredOccupations: 'occupations', preferredLocations: 'locations', preferredDiet: 'diet' } as const;
+export const profileSections = fullBiodataSections;
+export const preferenceLists = {
+  preferredMaritalStatus: 'maritalStatus',
+  preferredReligions: 'religions',
+  preferredCommunities: 'communities',
+  preferredMotherTongues: 'motherTongues',
+  preferredEducation: 'educationLevels',
+  preferredOccupations: 'occupations',
+  preferredLocations: 'locations',
+  preferredDiet: 'diet',
+} as const;
 const preferenceNumbers = ['minAge', 'maxAge', 'minHeight', 'maxHeight', 'minIncome'] as const;
 const numericFields = new Set(['height', 'annualIncome', 'brothersCount', 'sistersCount']);
 export const splitProfileList = (text: string) => [...new Set(text.split(',').map(value => value.trim()).filter(Boolean))];
@@ -13,16 +21,24 @@ export function profileFormValues(profile: MatrimonialProfile): Record<string, s
   const values = profile as unknown as Record<string, unknown>;
   for (const field of profileSections.flatMap(section => section.fields)) {
     const key = preferenceLists[field.name as keyof typeof preferenceLists];
-    const value = key ? profile.partnerPreferences[key] : preferenceNumbers.includes(field.name as typeof preferenceNumbers[number]) ? profile.partnerPreferences[field.name as typeof preferenceNumbers[number]] : values[field.name];
+    const value = key
+      ? profile.partnerPreferences[key]
+      : preferenceNumbers.includes(field.name as typeof preferenceNumbers[number])
+      ? profile.partnerPreferences[field.name as typeof preferenceNumbers[number]]
+      : values[field.name];
     data[field.name] = Array.isArray(value) ? value.join(', ') : String(value ?? '');
   }
   data.profilePhoto = profile.profilePhoto;
   return data;
 }
+
 export function validateProfileForm(data: Record<string, string>): FieldErrors {
-  const errors = validateRegistration(data);
-  for (const key of accountOnly) delete errors[key];
-  for (const name of ['languagesKnown', 'hobbies']) if (splitProfileList(data[name] || '').join(', ').length > 500) errors[name] = 'Please shorten this list to 500 characters or fewer, including commas and spaces.';
+  const errors = validateFullProfile(data);
+  for (const name of ['languagesKnown', 'hobbies']) {
+    if (splitProfileList(data[name] || '').join(', ').length > 500) {
+      errors[name] = 'Please shorten this list to 500 characters or fewer, including commas and spaces.';
+    }
+  }
   for (const field of profileSections.flatMap(section => section.fields)) {
     if (!field.options || !(field.name in preferenceLists)) continue;
     const values = splitProfileList(data[field.name] || '');
@@ -31,15 +47,26 @@ export function validateProfileForm(data: Record<string, string>): FieldErrors {
   }
   return errors;
 }
+
 export function profileFormPayload(data: Record<string, string>, existing: PartnerPreferences): Partial<MatrimonialProfile> {
   const payload: Record<string, unknown> = {};
   const preferences = { ...existing };
-  for (const section of profileSections) for (const field of section.fields) {
-    const value = data[field.name] || '';
-    const key = preferenceLists[field.name as keyof typeof preferenceLists];
-    if (key) Object.assign(preferences, { [key]: splitProfileList(value) });
-    else if (preferenceNumbers.includes(field.name as typeof preferenceNumbers[number])) Object.assign(preferences, { [field.name]: Number(value) });
-    else payload[field.name] = numericFields.has(field.name) ? Number(value) : ['languagesKnown', 'hobbies'].includes(field.name) ? splitProfileList(value) : value;
+  for (const section of profileSections) {
+    for (const field of section.fields) {
+      const value = data[field.name] || '';
+      const key = preferenceLists[field.name as keyof typeof preferenceLists];
+      if (key) {
+        Object.assign(preferences, { [key]: splitProfileList(value) });
+      } else if (preferenceNumbers.includes(field.name as typeof preferenceNumbers[number])) {
+        Object.assign(preferences, { [field.name]: Number(value) });
+      } else {
+        payload[field.name] = numericFields.has(field.name)
+          ? Number(value)
+          : ['languagesKnown', 'hobbies'].includes(field.name)
+          ? splitProfileList(value)
+          : value;
+      }
+    }
   }
   return { ...payload, profilePhoto: data.profilePhoto, partnerPreferences: preferences };
 }

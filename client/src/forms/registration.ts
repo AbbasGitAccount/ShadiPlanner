@@ -5,17 +5,32 @@ export interface Field {
 const maritalStatuses = ['Never Married', 'Divorced', 'Widowed', 'Awaiting Divorce'];
 const diets = ['Vegetarian', 'Non-Vegetarian', 'Eggetarian', 'Jain', 'Vegan'];
 const habits = ['No', 'Yes', 'Occasionally', 'Prefer not to say'];
-export const sections: { title: string; fields: Field[] }[] = [
+
+// Basic details required during initial registration without login
+export const basicSections: { title: string; fields: Field[] }[] = [
   { title: 'Account information', fields: [
     { name: 'fullName', label: "Candidate's full name", required: true },
     { name: 'email', label: 'Email address', type: 'email', required: true },
     { name: 'password', label: 'Create password', type: 'password', required: true, hint: 'At least 6 characters.' },
-    { name: 'phone', label: 'Phone number', type: 'tel', required: true, hint: 'Include your country code.' },
+    { name: 'phone', label: 'Phone number', type: 'tel', required: true, hint: 'Include your country code, e.g. +91 98765 43210.' },
   ] },
+  { title: 'Basic personal details', fields: [
+    { name: 'gender', label: 'Gender', options: ['Female', 'Male', 'Other'], required: true },
+    { name: 'dateOfBirth', label: 'Date of birth', type: 'date', required: true, hint: 'You must be at least 18 to register.' },
+    { name: 'maritalStatus', label: 'Marital status', options: maritalStatuses, required: true },
+    { name: 'religion', label: 'Religion / belief', required: true },
+    { name: 'motherTongue', label: 'Mother tongue', required: true },
+    { name: 'city', label: 'City', required: true },
+    { name: 'state', label: 'State / province', required: true },
+  ] },
+];
+
+// All comprehensive biodata sections available when updating profile
+export const fullBiodataSections: { title: string; fields: Field[] }[] = [
   { title: 'Personal & cultural biodata', fields: [
     { name: 'gender', label: 'Gender', options: ['Female', 'Male', 'Other'], required: true },
     { name: 'dateOfBirth', label: 'Date of birth', type: 'date', required: true, hint: 'You must be at least 18 to register.' },
-    { name: 'height', label: 'Your height (centimetres)', type: 'number', min: 100, max: 250, required: true, hint: 'Enter 100 to 250 cm. For example, 165 cm is about 5 ft 5 in. Do not enter feet here.' },
+    { name: 'height', label: 'Your height (centimetres)', type: 'number', min: 100, max: 250, required: true, hint: 'Enter 100 to 250 cm. For example, 165 cm is about 5 ft 5 in.' },
     { name: 'maritalStatus', label: 'Marital status', options: maritalStatuses, required: true },
     { name: 'religion', label: 'Religion / belief', required: true },
     { name: 'community', label: 'Community / caste' },
@@ -23,9 +38,9 @@ export const sections: { title: string; fields: Field[] }[] = [
     { name: 'motherTongue', label: 'Mother tongue', required: true },
     { name: 'languagesKnown', label: 'Languages spoken', hint: 'Separate languages with commas.' },
     { name: 'manglik', label: 'Manglik status (astrology)', options: ['Yes', 'No', 'Partial', 'Do not believe', 'Prefer not to say'], required: true, hint: 'If this does not apply to you, choose “Prefer not to say”.' },
-    { name: 'gothram', label: 'Gothram', hint: 'Leave blank if you do not know or this does not apply to you.' },
-    { name: 'rashi', label: 'Rashi', hint: 'Leave blank if you do not know or this does not apply to you.' },
-    { name: 'nakshatra', label: 'Nakshatra', hint: 'Leave blank if you do not know or this does not apply to you.' },
+    { name: 'gothram', label: 'Gothram', hint: 'Leave blank if not applicable.' },
+    { name: 'rashi', label: 'Rashi', hint: 'Leave blank if not applicable.' },
+    { name: 'nakshatra', label: 'Nakshatra', hint: 'Leave blank if not applicable.' },
   ] },
   { title: 'Education & profession', fields: [
     { name: 'highestEducation', label: 'Highest education', required: true },
@@ -60,9 +75,9 @@ export const sections: { title: string; fields: Field[] }[] = [
   ] },
   { title: 'Partner preferences', fields: [
     { name: 'minAge', label: 'Partner age: from (years)', type: 'number', min: 18, max: 100, required: true, hint: 'The youngest partner you would consider, aged 18 to 100.' },
-    { name: 'maxAge', label: 'Partner age: to (years)', type: 'number', min: 18, max: 100, required: true, hint: 'The oldest partner you would consider. Use the same age or an older age than your “from” age.' },
-    { name: 'minHeight', label: 'Partner height: from (centimetres)', type: 'number', min: 100, max: 250, required: true, hint: 'The shortest partner you would consider. Enter 100 to 250 cm, for example 150.' },
-    { name: 'maxHeight', label: 'Partner height: to (centimetres)', type: 'number', min: 100, max: 250, required: true, hint: 'The tallest partner you would consider. Use the same height or a taller height than your “from” height.' },
+    { name: 'maxAge', label: 'Partner age: to (years)', type: 'number', min: 18, max: 100, required: true, hint: 'The oldest partner you would consider. Use the same age or an older age.' },
+    { name: 'minHeight', label: 'Partner height: from (centimetres)', type: 'number', min: 100, max: 250, required: true, hint: 'The shortest partner you would consider. Enter 100 to 250 cm.' },
+    { name: 'maxHeight', label: 'Partner height: to (centimetres)', type: 'number', min: 100, max: 250, required: true, hint: 'The tallest partner you would consider.' },
     { name: 'minIncome', label: 'Partner yearly income: at least (lakhs of rupees)', type: 'number', min: 0, max: 1000000, required: true, hint: 'For at least 5 lakh rupees a year, enter 5. Enter 0 if any income is fine.' },
     { name: 'preferredMaritalStatus', label: 'Marital status', options: maritalStatuses },
     { name: 'preferredReligions', label: 'Religions / beliefs' },
@@ -75,6 +90,9 @@ export const sections: { title: string; fields: Field[] }[] = [
   ] },
 ];
 
+// Default sections for initial registration without login
+export const sections = basicSections;
+
 export type FieldErrors = Record<string, string>;
 
 export function heightDescription(value: string): string | undefined {
@@ -83,9 +101,9 @@ export function heightDescription(value: string): string | undefined {
   return `${value} cm is about ${Math.floor(inches / 12)} ft ${inches % 12} in.`;
 }
 
-export function validateRegistration(data: Record<string, string>, today = new Date()): FieldErrors {
+function validateFieldList(data: Record<string, string>, fieldList: Field[], today = new Date()): FieldErrors {
   const errors: FieldErrors = {};
-  for (const field of sections.flatMap(section => section.fields)) {
+  for (const field of fieldList) {
     const raw = data[field.name] ?? '';
     const value = raw.trim();
     if (!value) {
@@ -127,7 +145,7 @@ export function validateRegistration(data: Record<string, string>, today = new D
         errors.dateOfBirth = 'Enter your full date of birth: day, month and year.';
       } else {
         let age = today.getUTCFullYear() - birth.getUTCFullYear();
-        if (today.getUTCMonth() < birth.getUTCMonth() || today.getUTCMonth() === birth.getUTCMonth() && today.getUTCDate() < birth.getUTCDate()) age--;
+        if (today.getUTCMonth() < birth.getUTCMonth() || (today.getUTCMonth() === birth.getUTCMonth() && today.getUTCDate() < birth.getUTCDate())) age--;
         if (age < 18) errors.dateOfBirth = 'You must be at least 18 years old to register. Please check your date of birth.';
         else if (age > 100) errors.dateOfBirth = 'Please check your date of birth. Registration supports ages 18 to 100.';
       }
@@ -144,3 +162,12 @@ export function validateRegistration(data: Record<string, string>, today = new D
   return errors;
 }
 
+// Validates only basic details for initial sign up
+export function validateRegistration(data: Record<string, string>, today = new Date()): FieldErrors {
+  return validateFieldList(data, basicSections.flatMap(s => s.fields), today);
+}
+
+// Validates all comprehensive details when editing full profile
+export function validateFullProfile(data: Record<string, string>, today = new Date()): FieldErrors {
+  return validateFieldList(data, fullBiodataSections.flatMap(s => s.fields), today);
+}

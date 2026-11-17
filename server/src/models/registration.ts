@@ -64,17 +64,22 @@ export function buildRegistrationProfile(input: unknown, today = new Date()): Pr
   if (today.getUTCMonth() < birth.getUTCMonth() || (today.getUTCMonth() === birth.getUTCMonth() && today.getUTCDate() < birth.getUTCDate())) age--;
   if (age < 18 || age > 100) throw new RegistrationValidationError('Please check your date of birth. You must be aged 18 to 100 to register.', 'dateOfBirth');
 
-  const height = number('height', 100, 250);
+  const hasValue = (name: string): boolean => {
+    const val = data[name];
+    return val !== undefined && val !== null && String(val).trim() !== '';
+  };
+
+  const height = hasValue('height') ? number('height', 100, 250) : 165;
   const totalInches = Math.round(height / 2.54);
-  const annualIncome = number('annualIncome', 0, 1000000);
+  const annualIncome = hasValue('annualIncome') ? number('annualIncome', 0, 1000000) : 0;
   const phone = text('phone', true);
   if (!/^\+?[\d\s().-]+$/.test(phone) || phone.replace(/\D/g, '').length < 7 || phone.replace(/\D/g, '').length > 15) {
     throw new RegistrationValidationError('Enter a phone number with 7 to 15 digits, including the country code.', 'phone');
   }
-  const minAge = number('minAge', 18, 100, true);
-  const maxAge = number('maxAge', 18, 100, true);
-  const minHeight = number('minHeight', 100, 250);
-  const maxHeight = number('maxHeight', 100, 250);
+  const minAge = hasValue('minAge') ? number('minAge', 18, 100, true) : Math.max(18, age - 5);
+  const maxAge = hasValue('maxAge') ? number('maxAge', 18, 100, true) : Math.min(100, age + 5);
+  const minHeight = hasValue('minHeight') ? number('minHeight', 100, 250) : 145;
+  const maxHeight = hasValue('maxHeight') ? number('maxHeight', 100, 250) : 195;
   if (minAge > maxAge) throw new RegistrationValidationError(`Your oldest preferred partner must be ${minAge} years or older, because your age range starts at ${minAge}.`, 'maxAge');
   if (minHeight > maxHeight) throw new RegistrationValidationError(`Your tallest preferred partner must be ${minHeight} cm or taller, because your height range starts at ${minHeight} cm.`, 'maxHeight');
 
@@ -87,26 +92,33 @@ export function buildRegistrationProfile(input: unknown, today = new Date()): Pr
     motherTongue: text('motherTongue', true), languagesKnown: list('languagesKnown'),
     religion: text('religion', true), community: text('community'), subCommunity: text('subCommunity'),
     gothram: text('gothram'), rashi: text('rashi'), nakshatra: text('nakshatra'),
-    manglik: choice('manglik', ['Yes', 'No', 'Partial', 'Do not believe', 'Prefer not to say'] as const),
-    highestEducation: text('highestEducation', true), collegeUniversity: text('collegeUniversity'),
-    profession: text('profession', true), company: text('company'), annualIncome,
+    manglik: hasValue('manglik') ? choice('manglik', ['Yes', 'No', 'Partial', 'Do not believe', 'Prefer not to say'] as const) : 'Prefer not to say',
+    highestEducation: text('highestEducation') || 'Not Specified', collegeUniversity: text('collegeUniversity'),
+    profession: text('profession') || 'Not Specified', company: text('company'), annualIncome,
     annualIncomeFormatted: `\u20b9${annualIncome} Lakhs / yr`, workLocation: text('workLocation'),
-    city: text('city', true), state: text('state', true), country: text('country', true), citizenship: text('citizenship', true),
-    familyType: choice('familyType', ['Nuclear', 'Joint', 'Prefer not to say'] as const),
-    familyStatus: choice('familyStatus', ['Middle Class', 'Upper Middle Class', 'Rich / Affluent', 'Prefer not to say'] as const),
+    city: text('city', true), state: text('state', true), country: text('country') || 'India', citizenship: text('citizenship') || 'Indian',
+    familyType: hasValue('familyType') ? choice('familyType', ['Nuclear', 'Joint', 'Prefer not to say'] as const) : 'Prefer not to say',
+    familyStatus: hasValue('familyStatus') ? choice('familyStatus', ['Middle Class', 'Upper Middle Class', 'Rich / Affluent', 'Prefer not to say'] as const) : 'Middle Class',
     fatherOccupation: text('fatherOccupation'), motherOccupation: text('motherOccupation'),
-    brothersCount: number('brothersCount', 0, 50, true), sistersCount: number('sistersCount', 0, 50, true),
+    brothersCount: hasValue('brothersCount') ? number('brothersCount', 0, 50, true) : 0,
+    sistersCount: hasValue('sistersCount') ? number('sistersCount', 0, 50, true) : 0,
     familyLocation: text('familyLocation'), aboutFamily: text('aboutFamily'),
-    diet: choice('diet', [...diets, 'Prefer not to say'] as const),
-    smoking: choice('smoking', habits), drinking: choice('drinking', habits), hobbies: list('hobbies'),
-    profilePhoto: '/avatar-placeholder.svg', galleryPhotos: [], aboutMe: text('aboutMe', true),
+    diet: hasValue('diet') ? choice('diet', [...diets, 'Prefer not to say'] as const) : 'Prefer not to say',
+    smoking: hasValue('smoking') ? choice('smoking', habits) : 'No',
+    drinking: hasValue('drinking') ? choice('drinking', habits) : 'No',
+    hobbies: list('hobbies'),
+    profilePhoto: '/avatar-placeholder.svg', galleryPhotos: [],
+    aboutMe: text('aboutMe') || 'Looking for a compatible and understanding life partner.',
     isVerified: false, phoneVerified: false, govtIdVerified: false, premiumMember: false, phone,
     partnerPreferences: {
-      minAge, maxAge, minHeight, maxHeight, minIncome: number('minIncome', 0, 1000000),
+      minAge, maxAge, minHeight, maxHeight, minIncome: hasValue('minIncome') ? number('minIncome', 0, 1000000) : 0,
       maritalStatus: optionalChoice('preferredMaritalStatus', maritalStatuses),
-      religions: list('preferredReligions'), communities: list('preferredCommunities'),
-      motherTongues: list('preferredMotherTongues'), educationLevels: list('preferredEducation'),
-      occupations: list('preferredOccupations'), locations: list('preferredLocations'),
+      religions: list('preferredReligions').length ? list('preferredReligions') : [text('religion', true)],
+      communities: list('preferredCommunities'),
+      motherTongues: list('preferredMotherTongues').length ? list('preferredMotherTongues') : [text('motherTongue', true)],
+      educationLevels: list('preferredEducation'),
+      occupations: list('preferredOccupations'),
+      locations: list('preferredLocations').length ? list('preferredLocations') : [text('city', true)],
       diet: optionalChoice('preferredDiet', diets),
     },
   };

@@ -71,11 +71,11 @@ export const RegisterPage: React.FC = () => {
       <div className="bg-white rounded-3xl border border-rose-100 shadow-2xl p-6 sm:p-10 space-y-8">
         <div className="text-center space-y-3">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-50 text-xs font-semibold text-rose-700">
-            <Sparkles className="w-3.5 h-3.5 text-amber-500" /> Create your matrimonial biodata
+            <Sparkles className="w-3.5 h-3.5 text-amber-500" /> Quick & Easy Registration
           </div>
           <h1 className="font-playfair text-3xl font-extrabold text-slate-900">Begin Your Sacred Journey</h1>
-          <p className="text-sm text-slate-500">Tell us about yourself, your family, and the partner you hope to meet.</p>
-          <p className="text-xs text-slate-500">Fields marked * are required. Optional details can be left blank. Add your photo from My Profile after registering.</p>
+          <p className="text-sm text-slate-500">Register with your basic details to get started. You can complete your full education, family background, and partner preferences in your profile anytime!</p>
+          <p className="text-xs text-slate-400">Takes less than 1 minute · Fields marked * are required.</p>
         </div>
         <form noValidate onSubmit={handleSubmit} className="space-y-8" aria-busy={loading}>
           {(submitted && errorCount > 0 || error) && (
