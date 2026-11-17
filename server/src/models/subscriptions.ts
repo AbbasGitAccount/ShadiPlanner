@@ -5,6 +5,7 @@ export interface SubscriptionPlan {
   interestLimit: number | null; browseLimit: number | null; advancedSearch: boolean;
   contactDetails: boolean; enhancedVisibility: boolean; compatibleFirst: boolean; premiumBadge: boolean;
   support: 'standard' | 'priority' | 'dedicated';
+  directMessaging?: boolean;
 }
 export class SubscriptionError extends Error {
   constructor(message: string, public status = 403) { super(message); }

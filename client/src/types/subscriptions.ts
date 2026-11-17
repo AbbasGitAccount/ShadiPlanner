@@ -4,6 +4,7 @@ export interface SubscriptionPlan {
   interestLimit: number | null; browseLimit: number | null; advancedSearch: boolean;
   contactDetails: boolean; enhancedVisibility: boolean; compatibleFirst: boolean; premiumBadge: boolean;
   support: 'standard' | 'priority' | 'dedicated';
+  directMessaging?: boolean;
 }
 export interface Membership {
   plan: SubscriptionPlan; status: 'free' | 'active' | 'expired' | 'cancelled'; startedAt: string | null; expiresAt: string | null;

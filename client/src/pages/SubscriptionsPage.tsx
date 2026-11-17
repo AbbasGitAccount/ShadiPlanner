@@ -13,6 +13,7 @@ const features: { label: string; value: (plan: SubscriptionPlan) => boolean | st
   { label: 'Basic search filters', value: () => true },
   { label: 'Advanced search filters', value: plan => plan.advancedSearch },
   { label: 'Interests per calendar month', value: plan => plan.interestLimit === null ? 'Unlimited' : `${plan.interestLimit} interests / month` },
+  { label: 'Direct chat & messaging with matches', value: plan => plan.directMessaging ?? (plan.id !== 'free') },
   { label: 'Contact details after mutual consent', value: plan => plan.contactDetails },
   { label: 'Priority customer support', value: plan => plan.support !== 'standard' },
   { label: 'Enhanced profile visibility', value: plan => plan.enhancedVisibility },

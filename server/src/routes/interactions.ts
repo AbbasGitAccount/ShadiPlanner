@@ -5,7 +5,7 @@ import { Router, Response } from 'express';
 import { db } from '../data/db.js';
 import { AuthenticatedRequest, authenticateToken } from '../middleware/auth.js';
 import { InterestRequest, ShortlistRecord } from '../models/types.js';
-import { respondStoredInterest, sendLimitedInterest } from '../data/subscriptionDatabase.js';
+import { respondStoredInterest, sendLimitedInterest, membership } from '../data/subscriptionDatabase.js';
 import { SubscriptionError } from '../models/subscriptions.js';
 
 const router = Router();
@@ -56,13 +56,43 @@ router.post('/interest/:targetProfileId', async (req: AuthenticatedRequest, res:
     return;
   }
 
+  const defaultGreeting = `Hello ${targetProfile.fullName}, I reviewed your profile and felt a genuine connection. Let us connect!`;
+  const standardGreetings = [
+    defaultGreeting,
+    `Namaste ${targetProfile.fullName}, I went through your profile on ShadiPlanner and found our values and preferences aligned. I would be honored to connect and take conversations forward.`,
+    `Namaste! I admired your education and background. Would love to introduce myself and connect.`,
+    `Hello! Our family backgrounds and life outlook seem deeply compatible. Looking forward to speaking!`,
+    `Hi! We share a passion for similar goals and culture. Let us connect and start a conversation.`,
+  ];
+
+  const trimmedMessage = typeof message === 'string' ? message.trim() : '';
+  const isCustomPersonalMessage = Boolean(trimmedMessage && !standardGreetings.includes(trimmedMessage));
+  let finalMessage = trimmedMessage || defaultGreeting;
+
+  if (isCustomPersonalMessage) {
+    try {
+      const userMembership = await membership(userId!);
+      const hasPaidPlan = req.user?.role === 'admin' || (userMembership.status === 'active' && userMembership.plan.id !== 'free');
+      if (!hasPaidPlan) {
+        res.status(403).json({
+          message: 'Sending custom communication or personal messages requires a paid membership plan. You can express standard interest or upgrade your plan.',
+          code: 'PLAN_REQUIRED',
+          upgradeUrl: '/subscriptions'
+        });
+        return;
+      }
+    } catch (err) {
+      console.error('Membership check error during interest message:', err);
+    }
+  }
+
   const newInterest: InterestRequest = {
     id: randomUUID(),
     senderProfileId: senderProfile.id,
     receiverProfileId: targetProfile.id,
     status: 'pending',
     sentAt: new Date().toISOString(),
-    message: message || `Hello ${targetProfile.fullName}, I reviewed your profile and felt a genuine connection. Let us connect!`,
+    message: finalMessage,
   };
 
   try {

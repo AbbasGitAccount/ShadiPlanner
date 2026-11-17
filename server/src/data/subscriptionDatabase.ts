@@ -31,15 +31,15 @@ export async function initializeSubscriptions(legacy: InterestRequest[]): Promis
   const duration = setting('SUBSCRIPTION_DURATION_DAYS', null);
   const base = { currency: 'INR' as const, enhancedVisibility: false, compatibleFirst: false, premiumBadge: false };
   const plans: SubscriptionPlan[] = [
-    { ...base, id: 'free', name: 'Free', pricePaise: 0, durationDays: null, interestLimit: 5, browseLimit: setting('FREE_PROFILE_LIMIT', 20), advancedSearch: false, contactDetails: false, support: 'standard' },
-    { ...base, id: 'gold', name: 'Gold', pricePaise: setting('GOLD_PRICE_PAISE', 99900)!, durationDays: duration, interestLimit: 50, browseLimit: null, advancedSearch: true, contactDetails: true, support: 'priority' },
-    { ...base, id: 'platinum', name: 'Platinum', pricePaise: setting('PLATINUM_PRICE_PAISE', 199900)!, durationDays: duration, interestLimit: null, browseLimit: null, advancedSearch: true, contactDetails: true, support: 'dedicated', enhancedVisibility: true, compatibleFirst: true, premiumBadge: true },
+    { ...base, id: 'free', name: 'Free', pricePaise: 0, durationDays: null, interestLimit: 5, browseLimit: setting('FREE_PROFILE_LIMIT', 20), advancedSearch: false, contactDetails: false, directMessaging: false, support: 'standard' },
+    { ...base, id: 'gold', name: 'Gold', pricePaise: setting('GOLD_PRICE_PAISE', 99900)!, durationDays: duration, interestLimit: 50, browseLimit: null, advancedSearch: true, contactDetails: true, directMessaging: true, support: 'priority' },
+    { ...base, id: 'platinum', name: 'Platinum', pricePaise: setting('PLATINUM_PRICE_PAISE', 199900)!, durationDays: duration, interestLimit: null, browseLimit: null, advancedSearch: true, contactDetails: true, directMessaging: true, support: 'dedicated', enhancedVisibility: true, compatibleFirst: true, premiumBadge: true },
   ];
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
     await client.query('SELECT pg_advisory_xact_lock(726320109)');
-    for (const plan of plans) await client.query('INSERT INTO subscription_plans VALUES($1,$2) ON CONFLICT(id) DO NOTHING', [plan.id, plan]);
+    for (const plan of plans) await client.query('INSERT INTO subscription_plans VALUES($1,$2) ON CONFLICT(id) DO UPDATE SET configuration = jsonb_set(subscription_plans.configuration, \'{directMessaging}\', to_jsonb($3::boolean), true)', [plan.id, plan, plan.directMessaging]);
     // Preserve existing relationships once. PostgreSQL becomes authoritative for interests and quotas.
     const imported = await client.query("SELECT name FROM app_migrations WHERE name='subscription-interests-v1'");
     if (!imported.rowCount) {

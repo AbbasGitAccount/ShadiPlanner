@@ -20,6 +20,7 @@ import {
   sendMemberMessage,
   getMemberConversationsMap,
 } from '../data/memberMessagingDatabase.js';
+import { membership } from '../data/subscriptionDatabase.js';
 
 const router = Router();
 router.use(authenticateToken, profileSnapshot);
@@ -224,6 +225,34 @@ router.post('/:partnerProfileId', async (req: AuthenticatedRequest, res: Respons
   if (!userProfile.isVerified) {
     res.status(403).json({ message: 'Your profile must be approved before messaging' });
     return;
+  }
+
+  // Membership plan enforcement: members without an active paid plan cannot send messages to matches
+  if (req.user?.role !== 'admin' && !partnerProfileId.startsWith('admin:')) {
+    try {
+      const userMembership = await membership(userId!);
+      const canMessage =
+        userMembership.status === 'active' &&
+        userMembership.plan.id !== 'free' &&
+        userMembership.plan.directMessaging !== false;
+
+      if (!canMessage) {
+        res.status(403).json({
+          message: 'A paid membership plan is required to send messages. Please upgrade your plan to communicate directly with matches.',
+          code: 'PLAN_REQUIRED',
+          upgradeUrl: '/subscriptions'
+        });
+        return;
+      }
+    } catch (err) {
+      console.error('Membership check error during message send:', err);
+      res.status(403).json({
+        message: 'A paid membership plan is required to send messages. Please upgrade your plan to communicate directly with matches.',
+        code: 'PLAN_REQUIRED',
+        upgradeUrl: '/subscriptions'
+      });
+      return;
+    }
   }
 
   const isConnected = profilesConnected(userProfile, partnerProfile, db.interests);

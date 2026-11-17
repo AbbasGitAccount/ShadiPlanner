@@ -10,9 +10,13 @@ import {
   CheckCheck,
   Clock,
   UserCheck,
+  Crown,
+  ArrowRight,
+  Lock,
 } from 'lucide-react';
 import { api } from '../services/api';
 import { ConversationSummary, ChatMessage } from '../types';
+import { Membership } from '../types/subscriptions';
 import { useAuth } from '../context/AuthContext';
 
 export const MessagesPage: React.FC = () => {
@@ -29,6 +33,7 @@ export const MessagesPage: React.FC = () => {
   const [sendError, setSendError] = useState('');
   const [threadLoading, setThreadLoading] = useState(false);
   const [filter, setFilter] = useState('');
+  const [membership, setMembership] = useState<Membership | null>(null);
   const selectedRef = useRef(selectedPartnerId);
   const sendRevision = useRef(0);
   selectedRef.current = selectedPartnerId;
@@ -51,6 +56,16 @@ export const MessagesPage: React.FC = () => {
     void fetchConversations();
     const timer = window.setInterval(() => void fetchConversations(), 10000);
     return () => window.clearInterval(timer);
+  }, [user?.id]);
+
+  useEffect(() => {
+    let active = true;
+    if (user && user.role !== 'admin') {
+      api.getSubscription()
+        .then(sub => { if (active) setMembership(sub); })
+        .catch(() => {});
+    }
+    return () => { active = false; };
   }, [user?.id]);
 
   useEffect(() => {
@@ -101,6 +116,11 @@ export const MessagesPage: React.FC = () => {
     e.preventDefault();
     if (sending || !selectedPartnerId || !newMessage.trim()) return;
 
+    if (!canSendMessage) {
+      setSendError('A paid membership plan is required to send messages. Please upgrade your plan to communicate directly.');
+      return;
+    }
+
     setSending(true);
     sendRevision.current++;
     const draft = newMessage;
@@ -128,6 +148,8 @@ export const MessagesPage: React.FC = () => {
   const administrator = user?.role === 'admin';
   const adminComposer = administrator && !activePartner?.isAdministrator;
   const adminThread = administrator || !!activePartner?.isAdministrator;
+  const isPaidMember = membership ? (membership.status === 'active' && membership.plan.id !== 'free' && membership.plan.directMessaging !== false) : false;
+  const canSendMessage = administrator || !!activePartner?.isAdministrator || isPaidMember;
   const shownConversations = conversations.filter(conversation => `${conversation.partner.fullName} ${conversation.partner.city || ''}`.toLowerCase().includes(filter.trim().toLowerCase()));
 
   const icebreakers = adminThread ? (adminComposer ? ['Hello, please review the details in your profile.', 'Could you update the missing information in your biodata?'] : ['I need help with my profile.', 'I have updated my profile details.']) : [
@@ -323,18 +345,47 @@ export const MessagesPage: React.FC = () => {
               </div>
 
               {/* Quick Icebreakers suggestions */}
-              <div className="px-4 py-2 bg-white border-t border-slate-100 flex items-center space-x-2 overflow-x-auto">
-                <span className="text-[11px] font-semibold text-slate-400 shrink-0">Icebreakers:</span>
-                {icebreakers.map((prompt, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => setNewMessage(prompt)}
-                    className="shrink-0 text-[11px] px-2.5 py-1 bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-700 rounded-full border border-slate-200 transition"
+              {canSendMessage && (
+                <div className="px-4 py-2 bg-white border-t border-slate-100 flex items-center space-x-2 overflow-x-auto">
+                  <span className="text-[11px] font-semibold text-slate-400 shrink-0">Icebreakers:</span>
+                  {icebreakers.map((prompt, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setNewMessage(prompt)}
+                      className="shrink-0 text-[11px] px-2.5 py-1 bg-slate-100 hover:bg-rose-50 text-slate-700 hover:text-rose-700 rounded-full border border-slate-200 transition"
+                    >
+                      "{prompt}"
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Membership Plan Required Banner for Non-Paid Members */}
+              {!canSendMessage && (
+                <div className="p-4 bg-gradient-to-r from-amber-50 via-rose-50 to-amber-50 border-t border-amber-200 flex flex-col sm:flex-row items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-amber-500/10 text-amber-700 rounded-2xl shrink-0">
+                      <Crown className="w-5 h-5 text-amber-600" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                        <span>Membership Plan Required to Message</span>
+                        <span className="text-[10px] font-semibold px-2 py-0.5 bg-rose-100 text-rose-700 rounded-full">Paid Feature</span>
+                      </h4>
+                      <p className="text-[11px] text-slate-600 mt-0.5">
+                        Direct communication and chat messaging require an active paid membership. Upgrade your plan to start communicating with matches.
+                      </p>
+                    </div>
+                  </div>
+                  <Link
+                    to="/subscriptions"
+                    className="shrink-0 px-4 py-2 rounded-xl bg-gradient-to-r from-rose-600 to-amber-600 text-white text-xs font-bold shadow-md hover:shadow-lg transition flex items-center gap-1.5"
                   >
-                    "{prompt}"
-                  </button>
-                ))}
-              </div>
+                    <span>Upgrade Plan</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
+              )}
 
               {/* Text Input Footer */}
               <div className="p-4 border-t border-slate-200 bg-white">
@@ -343,19 +394,25 @@ export const MessagesPage: React.FC = () => {
                   <input
                     type="text"
                     maxLength={4000}
-                    disabled={sending || threadLoading}
+                    disabled={sending || threadLoading || !canSendMessage}
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
-                    placeholder={activePartner.isAdministrator ? 'Reply to the administrator...' : `Message ${activePartner.fullName.split(' ')[0]}...`}
-                    className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-2xl text-xs text-slate-800 outline-none focus:ring-2 focus:ring-rose-500 focus:bg-white transition"
+                    placeholder={
+                      !canSendMessage
+                        ? 'Upgrade your plan to send messages to this match...'
+                        : activePartner.isAdministrator
+                        ? 'Reply to the administrator...'
+                        : `Message ${activePartner.fullName.split(' ')[0]}...`
+                    }
+                    className="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-300 rounded-2xl text-xs text-slate-800 outline-none focus:ring-2 focus:ring-rose-500 focus:bg-white transition disabled:opacity-60 disabled:bg-slate-100"
                   />
                   <button
                     type="submit"
-                    disabled={sending || threadLoading || !newMessage.trim()}
+                    disabled={sending || threadLoading || !newMessage.trim() || !canSendMessage}
                     aria-label="Send message"
                     className="p-2.5 bg-gradient-to-r from-rose-600 to-amber-600 text-white rounded-2xl shadow-md shadow-rose-200 hover:shadow-lg transition disabled:opacity-50 cursor-pointer"
                   >
-                    <Send className="w-4 h-4" />
+                    {!canSendMessage ? <Lock className="w-4 h-4" /> : <Send className="w-4 h-4" />}
                   </button>
                 </form>
               </div>
